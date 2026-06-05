@@ -15,7 +15,7 @@ app.get("/", (_req, res) => {
     name: "OBer API",
     message: "Welcome to the OBer backend service.",
     description:
-      "This API will power the OBer application with Node.js, Express.js, and PostgreSQL.",
+      "This API will power the OBer application with Node.js, Express.js, and PostgreSQL Database.",
     status: "running",
     version: "1.0.0",
   });

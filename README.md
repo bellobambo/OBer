@@ -1,6 +1,6 @@
 # OBer
 
-OBer is an application project with a separate frontend and backend in one repository.
+OBer is a transport system software for connecting students and drivers around campus.
 
 ## Project Structure
 
