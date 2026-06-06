@@ -1,0 +1,29 @@
+meta {
+  name: Register Driver
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/register
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "role": "DRIVER",
+    "fullName": "John Driver",
+    "email": "john.driver@example.com",
+    "phone": "08098765432",
+    "password": "password123",
+    "licenseNumber": "DRV-12345",
+    "vehiclePlateNumber": "ABC-123XY",
+    "vehicleModel": "Toyota Corolla",
+    "vehicleColor": "Black"
+  }
+}
