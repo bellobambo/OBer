@@ -371,27 +371,26 @@ async function verifyPhone(req, res) {
 }
 
 async function loginUser(req, res) {
-  const role = getField(req.body, "role").toUpperCase();
-  const rawIdentifier = getField(
+  const login = getField(
     req.body,
+    "login",
+    "loginId",
+    "login_id",
     "identifier",
     "email",
     "phone",
     "phoneNumber",
     "phone_number",
+    "driverId",
+    "driver_id",
     "driverCode",
     "driver_code"
   );
-  const normalizedIdentifier = rawIdentifier.toLowerCase();
+  const normalizedLogin = login.toLowerCase();
   const password = getField(req.body, "password");
   const errors = [];
 
-  if (!role) {
-    errors.push("role is required.");
-  } else if (!VALID_ROLES.has(role)) {
-    errors.push("role must be either PASSENGER or DRIVER.");
-  }
-  if (!rawIdentifier) errors.push("identifier is required.");
+  if (!login) errors.push("login is required.");
   if (!password) errors.push("password is required.");
 
   if (errors.length > 0) {
@@ -404,14 +403,11 @@ async function loginUser(req, res) {
               users.phone_verified, users.created_at
        FROM users
        LEFT JOIN drivers ON drivers.user_id = users.id
-       WHERE users.role = $1
-         AND (
-           LOWER(users.email) = $2
-           OR users.phone = $3
-           OR ($1 = 'DRIVER' AND drivers.driver_code = $3)
-         )
+       WHERE LOWER(users.email) = $1
+          OR users.phone = $2
+          OR drivers.driver_code = $2
        LIMIT 1`,
-      [role, normalizedIdentifier, rawIdentifier]
+      [normalizedLogin, login]
     );
 
     if (userResult.rowCount === 0) {
@@ -484,11 +480,16 @@ async function getAuthenticatedUser(req, res) {
 async function requestPasswordReset(req, res) {
   const rawIdentifier = getField(
     req.body,
+    "login",
+    "loginId",
+    "login_id",
     "identifier",
     "email",
     "phone",
     "phoneNumber",
     "phone_number",
+    "driverId",
+    "driver_id",
     "driverCode",
     "driver_code"
   );
@@ -528,9 +529,7 @@ async function requestPasswordReset(req, res) {
     }
 
     return sendSuccess(res, 200, "If the account exists, a password reset code has been sent.", {
-      ...(process.env.NODE_ENV !== "production" && existingUserResult.rowCount > 0
-        ? { resetCode }
-        : {}),
+      ...(existingUserResult.rowCount > 0 ? { resetCode } : {}),
     });
   } catch (error) {
     return sendError(res, 500, "Unable to request password reset.", error.message);
@@ -540,11 +539,16 @@ async function requestPasswordReset(req, res) {
 async function resetPassword(req, res) {
   const rawIdentifier = getField(
     req.body,
+    "login",
+    "loginId",
+    "login_id",
     "identifier",
     "email",
     "phone",
     "phoneNumber",
     "phone_number",
+    "driverId",
+    "driver_id",
     "driverCode",
     "driver_code"
   );
