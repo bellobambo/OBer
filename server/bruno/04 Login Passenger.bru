@@ -1,0 +1,31 @@
+meta {
+  name: 04 Login Passenger
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "role": "PASSENGER",
+    "identifier": "passenger@example.com",
+    "password": "password123"
+  }
+}
+
+script:post-response {
+  const token = res.body?.token || res.body?.data?.token;
+
+  if (token) {
+    bru.setEnvVar("AUTH_TOKEN", token);
+  }
+}

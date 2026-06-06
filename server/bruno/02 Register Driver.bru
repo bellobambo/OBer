@@ -1,5 +1,5 @@
 meta {
-  name: Register Driver
+  name: 02 Register Driver
   type: http
   seq: 2
 }
@@ -17,13 +17,9 @@ headers {
 body:json {
   {
     "role": "DRIVER",
-    "fullName": "John Driver",
-    "email": "john.driver@example.com",
     "phone": "08098765432",
+    "email": "driver@example.com",
     "password": "password123",
-    "licenseNumber": "DRV-12345",
-    "vehiclePlateNumber": "ABC-123XY",
-    "vehicleModel": "Toyota Corolla",
-    "vehicleColor": "Black"
+    "driverCode": "DRV-1001"
   }
 }

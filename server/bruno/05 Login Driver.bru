@@ -1,0 +1,31 @@
+meta {
+  name: 05 Login Driver
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "role": "DRIVER",
+    "identifier": "DRV-1001",
+    "password": "password123"
+  }
+}
+
+script:post-response {
+  const token = res.body?.token || res.body?.data?.token;
+
+  if (token) {
+    bru.setEnvVar("AUTH_TOKEN", token);
+  }
+}

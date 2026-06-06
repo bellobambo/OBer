@@ -1,0 +1,22 @@
+meta {
+  name: 03 Verify Phone
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/register/verify-phone
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "phone": "08098765432",
+    "code": "123456"
+  }
+}
