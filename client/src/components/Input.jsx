@@ -1,0 +1,24 @@
+import { cn } from "../utils/cn";
+
+export function Input({ label, icon: Icon, className, inputClassName, ...props }) {
+  return (
+    <div className={cn("flex flex-col space-y-2", className)}>
+      {label && <label className="text-sm font-semibold text-gray-900">{label}</label>}
+      <div className="relative flex items-center">
+        {Icon && (
+          <div className="absolute left-4 text-gray-400">
+            <Icon className="w-5 h-5" />
+          </div>
+        )}
+        <input
+          className={cn(
+            "w-full bg-white border border-gray-200 rounded-[12px] py-4 text-gray-900 outline-none focus:border-[#3198F5] focus:ring-1 focus:ring-[#3198F5] transition-all",
+            Icon ? "pl-12 pr-4" : "px-4",
+            inputClassName
+          )}
+          {...props}
+        />
+      </div>
+    </div>
+  );
+}
