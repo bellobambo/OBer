@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #3198F5;
+  --color-brand-light: #F0F7FF;
+  --color-brand-dark: #207CCC;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html, body {
+    @apply m-0 p-0 w-full h-full;
+    background-color: #FFFFFF;
+    color: #111827;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
