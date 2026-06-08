@@ -1,5 +1,7 @@
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 export async function registerPassenger(data) {
-  const res = await fetch("/api/register", {
+  const res = await fetch(`${API_BASE}/api/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ role: "PASSENGER", ...data })
@@ -12,7 +14,7 @@ export async function registerPassenger(data) {
 }
 
 export async function registerDriver(data) {
-  const res = await fetch("/api/register", {
+  const res = await fetch(`${API_BASE}/api/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ role: "DRIVER", ...data })
@@ -25,7 +27,7 @@ export async function registerDriver(data) {
 }
 
 export async function loginPassenger(phone, password) {
-  const res = await fetch("/api/login", {
+  const res = await fetch(`${API_BASE}/api/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ phone, password })
@@ -38,7 +40,7 @@ export async function loginPassenger(phone, password) {
 }
 
 export async function verifyPhone(phone, code) {
-  const res = await fetch("/api/register/verify-phone", {
+  const res = await fetch(`${API_BASE}/api/register/verify-phone`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ phone, code })
@@ -51,7 +53,7 @@ export async function verifyPhone(phone, code) {
 }
 
 export async function loginDriver(driver_id, password) {
-  const res = await fetch("/api/login", {
+  const res = await fetch(`${API_BASE}/api/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ driver_id, password })
@@ -64,7 +66,7 @@ export async function loginDriver(driver_id, password) {
 }
 
 export async function requestPasswordReset(phone) {
-  const res = await fetch("/api/password-reset/request", {
+  const res = await fetch(`${API_BASE}/api/password-reset/request`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ phone })
@@ -76,11 +78,11 @@ export async function requestPasswordReset(phone) {
   return res.json();
 }
 
-export async function confirmPasswordReset(phone, code, newPassword) {
-  const res = await fetch("/api/password-reset/confirm", {
+export async function confirmPasswordReset(phone, code, password) {
+  const res = await fetch(`${API_BASE}/api/password-reset/confirm`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone, code, password: newPassword })
+    body: JSON.stringify({ phone, code, password })
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

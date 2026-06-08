@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://ober-2c8e.onrender.com/api/$1"
-    }
-  ]
-}

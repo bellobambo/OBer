@@ -8,12 +8,4 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
-  server: {
-    proxy: {
-      '/api': {
-        target: 'https://ober-2c8e.onrender.com',
-        changeOrigin: true,
-      }
-    }
-  }
 })
