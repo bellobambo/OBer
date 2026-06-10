@@ -1,0 +1,26 @@
+meta {
+  name: Location Preference
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/user/location-preference
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{AUTH_TOKEN}}
+}
+
+body:json {
+  {
+    "allowLocation": true,
+    "coordinates": [3.3792, 6.5244]
+  }
+}

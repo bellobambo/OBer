@@ -7,6 +7,7 @@ function toResponse(user) {
     email: user.email,
     phone: user.phone,
     phoneVerified: user.phone_verified,
+    locationTrackingEnabled: user.location_tracking_enabled,
     createdAt: user.created_at,
   };
 }
@@ -51,7 +52,7 @@ async function findByLogin(login) {
 
 async function findPublicById(id) {
   return pool.query(
-    `SELECT id, role, email, phone, phone_verified, created_at
+    `SELECT id, role, email, phone, phone_verified, location_tracking_enabled, created_at
      FROM users
      WHERE id = $1
      LIMIT 1`,
@@ -95,12 +96,34 @@ async function updatePassword(userId, passwordHash) {
   );
 }
 
+async function updateLocationPreference(userId, trackingEnabled) {
+  return pool.query(
+    `UPDATE users
+     SET location_tracking_enabled = $2
+     WHERE id = $1
+     RETURNING id, role, email, phone, location_tracking_enabled, created_at`,
+    [userId, trackingEnabled]
+  );
+}
+
+async function updatePhoneVerificationCode(userId, code, expiresAt) {
+  return pool.query(
+    `UPDATE users
+     SET phone_verification_code = $2,
+         phone_verification_expires_at = $3
+     WHERE id = $1`,
+    [userId, code, expiresAt]
+  );
+}
+
 module.exports = {
   create,
   findByLogin,
   findPublicById,
   setPasswordResetCode,
   toResponse,
+  updateLocationPreference,
   updatePassword,
+  updatePhoneVerificationCode,
   verifyPhone,
 };

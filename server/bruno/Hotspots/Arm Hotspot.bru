@@ -1,0 +1,26 @@
+meta {
+  name: Arm Hotspot
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/hotspot/arm
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{AUTH_TOKEN}}
+}
+
+body:json {
+  {
+    "placeName": "Angola Hall",
+    "coordinates": [3.3792, 6.5244]
+  }
+}

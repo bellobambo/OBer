@@ -1,0 +1,27 @@
+meta {
+  name: Update Location
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{baseUrl}}/api/location
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{AUTH_TOKEN}}
+}
+
+body:json {
+  {
+    "latitude": 6.5244,
+    "longitude": 3.3792,
+    "heading": 90.5
+  }
+}

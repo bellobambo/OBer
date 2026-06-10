@@ -1,0 +1,25 @@
+meta {
+  name: Disarm Hotspot
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/hotspot/disarm
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{AUTH_TOKEN}}
+}
+
+body:json {
+  {
+    "hotspotId": "1"
+  }
+}

@@ -1,0 +1,15 @@
+meta {
+  name: Get Nearby Drivers
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/location/nearby-drivers?latitude=6.5244&longitude=3.3792&radius=5
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{AUTH_TOKEN}}
+}

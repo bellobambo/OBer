@@ -16,6 +16,7 @@ const {
   validatePasswordResetRequest,
   validatePhoneVerification,
   validateRegistration,
+  validateResendVerification,
 } = require("../validators/authValidator");
 
 async function register(req, res) {
@@ -218,11 +219,40 @@ async function resetPassword(req, res) {
   }
 }
 
+async function resendVerificationCode(req, res) {
+  const { data, errors } = validateResendVerification(req.body);
+
+  if (errors.length > 0) {
+    return sendError(res, 400, "Validation failed.", errors);
+  }
+
+  const verificationCode = createVerificationCode();
+
+  try {
+    const existingUserResult = await User.findByLogin(data.phone);
+
+    if (existingUserResult.rowCount > 0 && !existingUserResult.rows[0].phone_verified) {
+      await User.updatePhoneVerificationCode(
+        existingUserResult.rows[0].id,
+        verificationCode,
+        getVerificationExpiry()
+      );
+    }
+
+    return sendSuccess(res, 200, "If the account exists and is not verified, a new verification code has been sent.", {
+      ...(existingUserResult.rowCount > 0 && !existingUserResult.rows[0].phone_verified ? { verificationCode } : {}),
+    });
+  } catch (error) {
+    return sendError(res, 500, "Unable to resend verification code.", error.message);
+  }
+}
+
 module.exports = {
   login,
   me,
   register,
   requestPasswordReset,
+  resendVerificationCode,
   resetPassword,
   verifyPhone,
 };

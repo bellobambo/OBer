@@ -102,10 +102,23 @@ function validatePasswordReset(body) {
   return { data, errors };
 }
 
+function validateResendVerification(body) {
+  const data = {
+    phone: getField(body, "phone"),
+  };
+
+  const errors = [];
+
+  if (!data.phone) errors.push("phone is required.");
+
+  return { data, errors };
+}
+
 module.exports = {
   validateLogin,
   validatePasswordReset,
   validatePasswordResetRequest,
   validatePhoneVerification,
   validateRegistration,
+  validateResendVerification,
 };
