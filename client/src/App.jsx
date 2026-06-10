@@ -8,6 +8,7 @@ import { OTPVerify } from "./pages/OTPVerify";
 import { ForgotPasswordRequest } from "./pages/ForgotPasswordRequest";
 import { ForgotPasswordConfirm } from "./pages/ForgotPasswordConfirm";
 import { TurnOnLocation } from "./pages/TurnOnLocation";
+import { PassengerMap } from "./pages/PassengerMap";
 import { DriverSignIn } from "./pages/DriverSignIn";
 import { DriverSignUp } from "./pages/DriverSignUp";
 import { DriverPINEntry } from "./pages/DriverPINEntry";
@@ -27,6 +28,7 @@ function App() {
           <Route path="/passenger/signup" element={<PassengerSignUp />} />
           <Route path="/verify-phone" element={<OTPVerify />} />
           <Route path="/location-permission" element={<TurnOnLocation />} />
+          <Route path="/passenger/map" element={<PassengerMap />} />
           <Route path="/forgot-password" element={<ForgotPasswordRequest />} />
           <Route path="/reset-password" element={<ForgotPasswordConfirm />} />
 

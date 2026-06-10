@@ -1,0 +1,43 @@
+What We Have Built So Far (Frontend)
+
+We have fully built out the Passenger side of things:
+
+The Full Onboarding Flow: Splash screens, Login, Sign up, OTP verification, and Password resets.
+The Passenger Map: A fully interactive map where passengers can search for locations on campus, drop pins, and arm their 5-minute hotspots.
+
+
+What We Need From You (Backend)
+
+To make the Passenger Map work, we only need three simple endpoints:
+
+1. Let Passengers Wait (Arm Hotspot)
+When a passenger taps "Arm Hotspot", we need to tell the server they are waiting at a specific spot.
+
+API: POST /api/hotspot/arm
+What we will send: The name of the place (e.g., "Angola Hall") and the exact coordinates [longitude, latitude].
+What you should do: Add them to a pool of waiting passengers at that location
+so drivers can see the numbers go up. Return us a hotspotId so we can track it.
+
+
+2. Let Passengers Cancel (Disarm Hotspot)
+If the passenger gets picked up or their 5-minute timer runs out, 
+we need to remove them from the map so drivers don't drive to an empty spot.
+
+API: POST /api/hotspot/disarm
+What we will send: The hotspotId.
+What you should do: Remove them from the active waiting pool.
+
+
+3. Save Location Preferences
+When passengers finish onboarding, we ask if they want to allow location tracking.
+
+API: POST /api/user/location-preference
+What we will send: A simple true/false and their last known coordinates.
+
+
+Future Thoughts (WebSockets)
+Right now, the passenger map is fully built.
+Next, we will build the Driver Map to show them the heat map of all these waiting passengers.
+
+If we eventually want to show passengers little glowing cars driving around on their map in real-time,
+we will probably need you guys to set up WebSockets (like Socket.io).

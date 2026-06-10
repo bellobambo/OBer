@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ScreenHeader } from "../components/ScreenHeader";
-import { PinInput } from "../components/PinInput";
+import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { InfoAlert } from "../components/InfoAlert";
 import { ShieldCheck, Power } from "lucide-react";
@@ -18,17 +18,15 @@ export function DriverPINEntry() {
       />
       
       <div className="mt-8 flex-1 space-y-8">
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-900">Password</label>
-          <input 
-            type="password"
-            maxLength={8}
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            placeholder="••••••••"
-            className="w-full bg-white border border-gray-200 rounded-[12px] px-4 py-4 text-center tracking-[0.3em] text-xl outline-none focus:border-[#3198F5] focus:ring-1 focus:ring-[#3198F5]"
-          />
-        </div>
+        <Input 
+          label="Password"
+          type="password"
+          maxLength={8}
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+          placeholder="••••••••"
+          inputClassName="text-center tracking-[0.3em] text-xl"
+        />
         
         <InfoAlert icon={ShieldCheck}>
           Going on duty makes you visible on every passenger map across OAU.

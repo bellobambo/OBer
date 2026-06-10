@@ -23,12 +23,12 @@ export function PinInput({ length = 4, value = "", onChange }) {
   };
 
   return (
-    <div className="flex justify-between gap-3 max-w-[320px] mx-auto">
+    <div className="flex justify-between gap-2 max-w-[360px] mx-auto">
       {Array.from({ length }).map((_, i) => (
         <input
           key={i}
           ref={(el) => (inputsRef.current[i] = el)}
-          className="w-16 h-16 sm:w-[72px] sm:h-[72px] text-center text-3xl font-bold bg-white border border-gray-200 rounded-[12px] outline-none focus:border-[#3198F5] focus:ring-2 focus:ring-[#3198F5]/20 text-gray-900 transition-all"
+          className="w-11 h-14 sm:w-14 sm:h-16 text-center text-2xl sm:text-3xl font-bold bg-white border border-gray-200 rounded-[12px] outline-none focus:border-[#3198F5] focus:ring-2 focus:ring-[#3198F5]/20 text-gray-900 transition-all"
           type="text"
           inputMode="numeric"
           maxLength={1}

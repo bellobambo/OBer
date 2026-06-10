@@ -19,7 +19,16 @@ export function TurnOnLocation() {
       </div>
 
       <div className="w-full space-y-4 pb-8">
-        <Button onClick={() => navigate("/")}>
+        <Button onClick={() => {
+          if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => navigate("/passenger/map", { state: { lat: pos.coords.latitude, lng: pos.coords.longitude } }),
+              () => navigate("/passenger/map")
+            );
+          } else {
+            navigate("/passenger/map");
+          }
+        }}>
           Allow while using OBer
         </Button>
         <Button variant="secondary" onClick={() => navigate("/")} className="bg-[#F3F4F6] text-gray-700 hover:bg-gray-200">
