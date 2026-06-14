@@ -16,6 +16,33 @@ class Location {
     return pool.query(query, [userId, latitude, longitude, heading]);
   }
 
+  static async updateDriverVisibility(userId, isVisible, latitude, longitude, heading) {
+    if (!isVisible) {
+      return pool.query(
+        `UPDATE user_locations
+         SET is_visible = FALSE,
+             updated_at = NOW()
+         WHERE user_id = $1
+         RETURNING *`,
+        [userId]
+      );
+    }
+
+    const query = `
+      INSERT INTO user_locations (user_id, latitude, longitude, heading, is_visible, updated_at)
+      VALUES ($1, $2, $3, $4, TRUE, NOW())
+      ON CONFLICT (user_id)
+      DO UPDATE SET
+        latitude = EXCLUDED.latitude,
+        longitude = EXCLUDED.longitude,
+        heading = EXCLUDED.heading,
+        is_visible = TRUE,
+        updated_at = NOW()
+      RETURNING *;
+    `;
+    return pool.query(query, [userId, latitude, longitude, heading]);
+  }
+
   static async getNearbyDrivers(latitude, longitude, radiusInKm = 5) {
     const query = `
       SELECT * FROM (
@@ -26,6 +53,7 @@ class Location {
           l.latitude,
           l.longitude,
           l.heading,
+          l.is_visible,
           l.updated_at,
           (
             6371 * acos(
@@ -38,6 +66,7 @@ class Location {
         JOIN users u ON l.user_id = u.id
         JOIN drivers d ON u.id = d.user_id
         WHERE u.role = 'DRIVER'
+          AND l.is_visible = TRUE
           AND l.updated_at > NOW() - INTERVAL '5 minutes'
       ) as sub
       WHERE distance <= $3
@@ -52,10 +81,11 @@ class Location {
         l.latitude,
         l.longitude,
         l.heading,
+        l.is_visible,
         l.updated_at
       FROM user_locations l
       JOIN users u ON l.user_id = u.id
-      WHERE u.role = 'DRIVER' AND u.id = $1
+      WHERE u.role = 'DRIVER' AND u.id = $1 AND l.is_visible = TRUE
     `;
     return pool.query(query, [driverId]);
   }

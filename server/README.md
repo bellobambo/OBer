@@ -74,6 +74,35 @@ Start the production server:
 npm start
 ```
 
+## Driver Visibility
+
+Drivers can toggle whether they appear on the passenger map.
+
+### `PUT /api/location/visibility`
+
+Requires a bearer token for a driver account.
+
+Enable visibility:
+
+```json
+{
+  "isVisible": true,
+  "latitude": 6.5244,
+  "longitude": 3.3792,
+  "heading": 90.5
+}
+```
+
+Disable visibility:
+
+```json
+{
+  "isVisible": false
+}
+```
+
+Only visible drivers with a location updated in the last five minutes are returned by `GET /api/location/nearby-drivers`.
+
 ## Endpoints
 
 ### `GET /`

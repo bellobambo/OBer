@@ -21,6 +21,7 @@ router.post("/api/password-reset/confirm", AuthController.resetPassword);
 
 // Location routes
 router.put("/api/location", requireAuth, LocationController.updateLocation);
+router.put("/api/location/visibility", requireAuth, LocationController.updateDriverVisibility);
 router.get("/api/location/nearby-drivers", requireAuth, LocationController.getNearbyDrivers);
 router.get("/api/location/driver/:driverId", requireAuth, LocationController.getDriverLocation);
 

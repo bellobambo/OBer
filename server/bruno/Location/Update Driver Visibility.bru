@@ -1,0 +1,28 @@
+meta {
+  name: Update Driver Visibility
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/location/visibility
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{AUTH_TOKEN}}
+}
+
+body:json {
+  {
+    "isVisible": true,
+    "latitude": 6.5244,
+    "longitude": 3.3792,
+    "heading": 90.5 // Optional
+  }
+}
