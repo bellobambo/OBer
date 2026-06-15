@@ -14,7 +14,7 @@ const OAU_CENTER = [4.524, 7.521];
 
 const PREDEFINED_HOTSPOTS = [
   { name: "Angola Hall", coords: [4.524, 7.518] },
-  { name: "OAU Health Center", coords: [4.521, 7.525] },
+  { name: "OAU Health Centre", coords: [4.521, 7.525] },
   { name: "Faculty of Tech", coords: [4.528, 7.522] },
 ];
 
