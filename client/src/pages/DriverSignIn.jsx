@@ -20,8 +20,9 @@ export function DriverSignIn() {
     try {
       const data = await loginDriver(driverCode, pin);
       toast.success("Driver signed in successfully");
-      if (data.token) localStorage.setItem("token", data.token);
-      navigate("/driver/pin");
+      const token = data.data?.token || data.token;
+      if (token) localStorage.setItem("token", token);
+      navigate("/driver/map");
     } catch (error) {
       toast.error(error.message || "Failed to sign in as driver");
     } finally {

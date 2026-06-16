@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Car, Map as MapIcon, History, Wallet, User, Search, X, MapPin } from "lucide-react";
+import { Car, History, Wallet, User, Search, X, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useDummyDrivers } from "../hooks/useDummyDrivers";
+import { armHotspot, disarmHotspot } from "../services/api";
 
 const OAU_BOUNDS = [
   [4.50, 7.50], // Southwest
@@ -27,6 +28,8 @@ export function PassengerMap() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isArmed, setIsArmed] = useState(false);
+  const [hotspotId, setHotspotId] = useState(null);
+  const [isArming, setIsArming] = useState(false);
   
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -155,17 +158,36 @@ export function PassengerMap() {
     if (isArmed && timeLeft > 0) {
       timerId = setInterval(() => setTimeLeft(p => p - 1), 1000);
     } else if (timeLeft === 0 && isArmed) {
-      setIsArmed(false); // Cancel automatically when done
+      handleCancelArm(); // Cancel automatically when done
     }
     return () => clearInterval(timerId);
   }, [isArmed, timeLeft]);
 
-  const handleArm = () => {
-    setIsArmed(true);
-    setTimeLeft(300);
+  const handleArm = async () => {
+    if (!selectedSpot) return;
+    setIsArming(true);
+    try {
+      const data = await armHotspot(selectedSpot.name, selectedSpot.coords);
+      setHotspotId(data.data?.hotspotId || data.hotspotId || data.data?.hotspot?.id);
+      setIsArmed(true);
+      setTimeLeft(300);
+      toast.success("Hotspot armed successfully!");
+    } catch (e) {
+      toast.error(e.message || "Failed to arm hotspot");
+    } finally {
+      setIsArming(false);
+    }
   };
 
-  const handleCancelArm = () => {
+  const handleCancelArm = async () => {
+    if (hotspotId) {
+      try {
+        await disarmHotspot(hotspotId);
+      } catch (e) {
+        console.error("Disarm error", e);
+      }
+    }
+    setHotspotId(null);
     setIsArmed(false);
     setTimeLeft(300);
   };
@@ -294,7 +316,7 @@ export function PassengerMap() {
                     className="flex flex-col items-center gap-3 min-w-[90px] group"
                   >
                     <div className={`w-14 h-14 rounded-[20px] flex items-center justify-center transition-all duration-300 ${selectedSpot?.name === spot.name ? "bg-[#3198F5] text-white shadow-lg" : "bg-[#f2f4f6] text-[#3198F5] group-hover:bg-[#e6e8ea]"}`}>
-                      <MapPin className="w-6 h-6" />
+                      <MapPin className="w-6 h-6 fill-current" />
                     </div>
                     <span className={`text-[11px] font-bold tracking-wide text-center leading-tight ${selectedSpot?.name === spot.name ? "text-[#3198F5]" : "text-[#56656e]"}`}>{spot.name}</span>
                   </button>
@@ -303,10 +325,10 @@ export function PassengerMap() {
               
               <button 
                 onClick={handleArm}
-                disabled={!selectedSpot}
+                disabled={!selectedSpot || isArming}
                 className={`w-full font-bold py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all text-[15px] ${selectedSpot ? "bg-[#3198F5] text-white" : "bg-[#e6e8ea] text-[#717782] cursor-not-allowed"}`}
               >
-                {selectedSpot ? `Arm Hotspot at ${selectedSpot.name}` : "Select a location to arm"}
+                {isArming ? "Arming..." : selectedSpot ? `Arm Hotspot at ${selectedSpot.name}` : "Select a location to arm"}
               </button>
             </div>
           ) : (
@@ -336,7 +358,7 @@ export function PassengerMap() {
       <nav className={`fixed bottom-0 w-full z-[25] flex justify-around items-center px-4 h-[84px] bg-white/90 backdrop-blur-xl border-t border-[#c1c7d2]/30 transition-transform duration-300 ${isModalOpen ? "translate-y-full" : ""}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         <button className="flex flex-col items-center text-[#3198F5] gap-1">
           <div className="bg-[#3198F5]/10 px-6 py-1.5 rounded-2xl">
-            <MapIcon className="w-5 h-5" strokeWidth={2.5} />
+            <MapPin className="w-5 h-5" strokeWidth={2.5} />
           </div>
           <span className="text-[10px] font-bold tracking-wide">Map</span>
         </button>

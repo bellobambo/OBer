@@ -90,3 +90,75 @@ export async function confirmPasswordReset(phone, code, password) {
   }
   return res.json();
 }
+
+export async function updateLocationPreference(allowLocation, coordinates) {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${API_BASE}/api/user/location-preference`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ allowLocation, coordinates })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const detail = err.errors ? (Array.isArray(err.errors) ? err.errors.join(", ") : err.errors) : "";
+    throw new Error(detail || err.error || err.message || "Failed to save location preference");
+  }
+  return res.json();
+}
+
+export async function armHotspot(placeName, coordinates) {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${API_BASE}/api/hotspot/arm`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ placeName, coordinates })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const detail = err.errors ? (Array.isArray(err.errors) ? err.errors.join(", ") : err.errors) : "";
+    throw new Error(detail || err.error || err.message || "Failed to arm hotspot");
+  }
+  return res.json();
+}
+
+export async function disarmHotspot(hotspotId) {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${API_BASE}/api/hotspot/disarm`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ hotspotId })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const detail = err.errors ? (Array.isArray(err.errors) ? err.errors.join(", ") : err.errors) : "";
+    throw new Error(detail || err.error || err.message || "Failed to disarm hotspot");
+  }
+  return res.json();
+}
+
+export async function updateDriverVisibility(isVisible, latitude, longitude, heading) {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${API_BASE}/api/location/visibility`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ isVisible, latitude, longitude, heading })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const detail = err.errors ? (Array.isArray(err.errors) ? err.errors.join(", ") : err.errors) : "";
+    throw new Error(detail || err.error || err.message || "Failed to update visibility");
+  }
+  return res.json();
+}

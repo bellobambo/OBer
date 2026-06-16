@@ -12,6 +12,7 @@ import { PassengerMap } from "./pages/PassengerMap";
 import { DriverSignIn } from "./pages/DriverSignIn";
 import { DriverSignUp } from "./pages/DriverSignUp";
 import { DriverPINEntry } from "./pages/DriverPINEntry";
+import { DriverMap } from "./pages/DriverMap";
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
           <Route path="/driver/signin" element={<DriverSignIn />} />
           <Route path="/driver/signup" element={<DriverSignUp />} />
           <Route path="/driver/pin" element={<DriverPINEntry />} />
+          <Route path="/driver/map" element={<DriverMap />} />
         </Routes>
       </Router>
     </>
