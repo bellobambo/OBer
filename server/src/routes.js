@@ -23,7 +23,9 @@ router.post("/api/password-reset/confirm", AuthController.resetPassword);
 router.put("/api/location", requireAuth, LocationController.updateLocation);
 router.put("/api/location/visibility", requireAuth, LocationController.updateDriverVisibility);
 router.get("/api/location/nearby-drivers", requireAuth, LocationController.getNearbyDrivers);
+router.get("/api/location/nearby-users", requireAuth, LocationController.getNearbyUsers);
 router.get("/api/location/driver/:driverId", requireAuth, LocationController.getDriverLocation);
+router.get("/api/location/user/:userId", requireAuth, LocationController.getUserLocation);
 
 // Hotspot routes
 router.post("/api/hotspot/arm", requireAuth, HotspotController.armHotspot);

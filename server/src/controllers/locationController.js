@@ -100,9 +100,44 @@ async function getDriverLocation(req, res) {
   }
 }
 
+async function getUserLocation(req, res) {
+  const { userId } = req.params;
+
+  try {
+    const result = await Location.getUserLocation(userId);
+    if (result.rowCount === 0) {
+      return sendError(res, 404, "User location not found.");
+    }
+    return sendSuccess(res, 200, "User location retrieved successfully.", {
+      location: result.rows[0],
+    });
+  } catch (error) {
+    return sendError(res, 500, "Unable to get user location.", error.message);
+  }
+}
+
+async function getNearbyUsers(req, res) {
+  const { latitude, longitude, radius } = req.query;
+
+  if (latitude === undefined || longitude === undefined) {
+    return sendError(res, 400, "Latitude and longitude are required.");
+  }
+
+  try {
+    const result = await Location.getNearbyUsers(latitude, longitude, radius || 5);
+    return sendSuccess(res, 200, "Nearby users retrieved successfully.", {
+      users: result.rows,
+    });
+  } catch (error) {
+    return sendError(res, 500, "Unable to get nearby users.", error.message);
+  }
+}
+
 module.exports = {
   updateDriverVisibility,
   updateLocation,
   getNearbyDrivers,
   getDriverLocation,
+  getUserLocation,
+  getNearbyUsers,
 };
