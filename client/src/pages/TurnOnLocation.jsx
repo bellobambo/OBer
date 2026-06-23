@@ -1,9 +1,40 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "../components/Button";
 import { MapPin } from "lucide-react";
+import { updateLocationPreference } from "../services/api";
 
 export function TurnOnLocation() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const locationState = location.state || {};
+  const targetRoute = locationState.role === "DRIVER" ? "/driver/map" : "/passenger/map";
+
+  const handleAllow = () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          try {
+            await updateLocationPreference(true, [pos.coords.longitude, pos.coords.latitude]);
+          } catch (e) { console.error(e); }
+          navigate(targetRoute, { state: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
+        },
+        async () => {
+          try { await updateLocationPreference(false); } catch (e) { console.error(e); }
+          navigate(targetRoute);
+        }
+      );
+    } else {
+      updateLocationPreference(false).catch(console.error).finally(() => {
+        navigate(targetRoute);
+      });
+    }
+  };
+
+  const handleNotNow = async () => {
+    try { await updateLocationPreference(false); } catch (e) { console.error(e); }
+    navigate(targetRoute);
+  };
 
   return (
     <div className="p-6 min-h-screen bg-white flex flex-col items-center text-center max-w-md mx-auto">
@@ -19,19 +50,10 @@ export function TurnOnLocation() {
       </div>
 
       <div className="w-full space-y-4 pb-8">
-        <Button onClick={() => {
-          if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(
-              (pos) => navigate("/passenger/map", { state: { lat: pos.coords.latitude, lng: pos.coords.longitude } }),
-              () => navigate("/passenger/map")
-            );
-          } else {
-            navigate("/passenger/map");
-          }
-        }}>
+        <Button onClick={handleAllow}>
           Allow while using OBer
         </Button>
-        <Button variant="secondary" onClick={() => navigate("/")} className="bg-[#F3F4F6] text-gray-700 hover:bg-gray-200">
+        <Button variant="secondary" onClick={handleNotNow} className="bg-[#F3F4F6] text-gray-700 hover:bg-gray-200">
           Not now
         </Button>
       </div>

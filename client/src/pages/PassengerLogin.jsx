@@ -19,8 +19,9 @@ export function PassengerLogin() {
     try {
       const data = await loginPassenger(phone, password);
       toast.success("Logged in successfully!");
-      if (data.token) localStorage.setItem("token", data.token);
-      navigate("/"); // In a real app, go to the dashboard map
+      const token = data.data?.token || data.token;
+      if (token) localStorage.setItem("token", token);
+      navigate("/passenger/map"); // Go to the passenger map dashboard
     } catch (error) {
       toast.error(error.message || "Failed to log in");
     } finally {

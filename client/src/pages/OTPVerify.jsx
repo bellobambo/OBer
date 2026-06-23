@@ -28,8 +28,10 @@ export function OTPVerify() {
     try {
       const data = await verifyPhone(phone, pin);
       toast.success("Phone verified successfully!");
-      if (data.token) localStorage.setItem("token", data.token);
-      navigate("/location-permission");
+      const token = data.data?.token || data.token;
+      const role = data.data?.user?.role || data.user?.role;
+      if (token) localStorage.setItem("token", token);
+      navigate("/location-permission", { state: { role } });
     } catch (error) {
       toast.error(error.message || "Invalid verification code");
     } finally {
