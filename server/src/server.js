@@ -2,10 +2,13 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const http = require("http");
 const routes = require("./routes");
+const Realtime = require("./realtime");
 const { createTables } = require("./schema");
 
 const app = express();
+const httpServer = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
@@ -20,7 +23,9 @@ async function startServer() {
     console.error("Unable to initialize database tables:", error.message);
   }
 
-  app.listen(PORT, () => {
+  Realtime.initialize(httpServer);
+
+  httpServer.listen(PORT, () => {
     console.log(`OBer server is running on port ${PORT}`);
   });
 }

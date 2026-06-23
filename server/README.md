@@ -103,6 +103,100 @@ Disable visibility:
 
 Only visible drivers with a location updated in the last five minutes are returned by `GET /api/location/nearby-drivers`.
 
+## Active Hotspots
+
+### `GET /api/hotspots/active`
+
+Requires a bearer token. Returns unexpired active hotspots grouped by normalized
+place name and coordinates rounded to five decimal places.
+
+Without query parameters, all grouped active hotspots are returned:
+
+```http
+GET /api/hotspots/active
+```
+
+To return only hotspots within range of a driver's current position, provide
+latitude and longitude. Radius is measured in kilometres, defaults to `5`, and
+cannot exceed `50`:
+
+```http
+GET /api/hotspots/active?latitude=7.521&longitude=4.524&radius=5
+```
+
+```json
+{
+  "success": true,
+  "message": "Active hotspots retrieved successfully.",
+  "data": {
+    "hotspots": [
+      {
+        "placeName": "SUB",
+        "coordinates": [4.524, 7.521],
+        "passengerCount": 12,
+        "distance": 0.8
+      }
+    ],
+    "searchArea": {
+      "latitude": 7.521,
+      "longitude": 4.524,
+      "radius": 5,
+      "unit": "kilometres"
+    }
+  }
+}
+```
+
+When coordinates are provided, results are sorted nearest first. Both latitude
+and longitude must be supplied together. The location is taken from the query,
+so the driver frontend should send its latest GPS coordinates.
+
+Arming a new hotspot automatically replaces any previous active hotspot owned
+by the same passenger.
+
+## Realtime Map Updates
+
+The server exposes Socket.IO on the same host and port as the HTTP API. Connect
+with the login token:
+
+```js
+const socket = io(API_URL, {
+  auth: { token }
+});
+```
+
+The server sends these events:
+
+- `hotspots:snapshot`: all active grouped hotspots, sent after connecting.
+- `hotspot:updated`: one grouped hotspot whose passenger count changed.
+- `hotspot:removed`: one grouped hotspot whose passenger count reached zero.
+- `driver:location`: a visible driver's latest location.
+- `driver:visibility`: a driver's visibility state changed.
+
+Drivers can send location updates:
+
+```js
+socket.emit(
+  "driver:location:update",
+  { latitude: 7.521, longitude: 4.524, heading: 90 },
+  (response) => console.log(response)
+);
+```
+
+Drivers can also toggle visibility:
+
+```js
+socket.emit(
+  "driver:visibility:update",
+  { isVisible: false },
+  (response) => console.log(response)
+);
+```
+
+Socket connections are authenticated and driver update events are restricted
+to driver accounts. Hotspot expiry is checked every five seconds and reflected
+through the same grouped hotspot events.
+
 ## Endpoints
 
 ### `GET /`

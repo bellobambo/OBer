@@ -1,0 +1,21 @@
+meta {
+  name: Get Nearby Active Hotspots
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/hotspots/active?latitude={{DRIVER_LATITUDE}}&longitude={{DRIVER_LONGITUDE}}&radius={{HOTSPOT_RADIUS_KM}}
+  body: none
+  auth: bearer
+}
+
+query {
+  latitude: {{DRIVER_LATITUDE}}
+  longitude: {{DRIVER_LONGITUDE}}
+  radius: {{HOTSPOT_RADIUS_KM}}
+}
+
+auth:bearer {
+  token: {{AUTH_TOKEN}}
+}

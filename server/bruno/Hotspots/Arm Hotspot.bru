@@ -20,7 +20,17 @@ auth:bearer {
 
 body:json {
   {
-    "placeName": "Angola Hall",
-    "coordinates": [3.3792, 6.5244] // [longitude, latitude]
+    "placeName": "SUB",
+    "coordinates": [4.524, 7.521]
+  }
+}
+
+script:post-response {
+  const hotspotId =
+    res.body?.data?.hotspotId ||
+    res.body?.data?.hotspot?.id;
+
+  if (hotspotId) {
+    bru.setEnvVar("HOTSPOT_ID", String(hotspotId));
   }
 }

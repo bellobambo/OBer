@@ -1,4 +1,5 @@
 const Location = require("../models/locationModel");
+const Realtime = require("../realtime");
 const { sendError, sendSuccess } = require("../utils/response");
 
 function toNumber(value) {
@@ -7,16 +8,32 @@ function toNumber(value) {
   return Number.isFinite(number) ? number : undefined;
 }
 
+function isValidCoordinate(longitude, latitude) {
+  return (
+    Number.isFinite(longitude) &&
+    Number.isFinite(latitude) &&
+    longitude >= -180 &&
+    longitude <= 180 &&
+    latitude >= -90 &&
+    latitude <= 90
+  );
+}
+
 async function updateLocation(req, res) {
-  const { latitude, longitude, heading } = req.body;
+  const latitude = toNumber(req.body.latitude);
+  const longitude = toNumber(req.body.longitude);
+  const heading = toNumber(req.body.heading);
   const userId = req.user.id;
 
-  if (latitude === undefined || longitude === undefined) {
-    return sendError(res, 400, "Latitude and longitude are required.");
+  if (!isValidCoordinate(longitude, latitude)) {
+    return sendError(res, 400, "Valid latitude and longitude are required.");
   }
 
   try {
     const result = await Location.updateLocation(userId, latitude, longitude, heading);
+    if (req.user.role === "DRIVER" && result.rows[0].is_visible) {
+      Realtime.emitDriverLocation(result.rows[0]);
+    }
     return sendSuccess(res, 200, "Location updated successfully.", {
       location: result.rows[0],
     });
@@ -43,6 +60,10 @@ async function updateDriverVisibility(req, res) {
     return sendError(res, 400, "Latitude and longitude are required when enabling visibility.");
   }
 
+  if (isVisible && !isValidCoordinate(longitude, latitude)) {
+    return sendError(res, 400, "Valid latitude and longitude are required when enabling visibility.");
+  }
+
   try {
     const result = await Location.updateDriverVisibility(
       userId,
@@ -55,6 +76,8 @@ async function updateDriverVisibility(req, res) {
       user_id: userId,
       is_visible: false,
     };
+
+    Realtime.emitDriverVisibility(location);
 
     return sendSuccess(
       res,

@@ -30,6 +30,7 @@ router.get("/api/location/user/:userId", requireAuth, LocationController.getUser
 // Hotspot routes
 router.post("/api/hotspot/arm", requireAuth, HotspotController.armHotspot);
 router.post("/api/hotspot/disarm", requireAuth, HotspotController.disarmHotspot);
+router.get("/api/hotspots/active", requireAuth, HotspotController.getActiveHotspots);
 
 // User location preference
 router.post("/api/user/location-preference", requireAuth, UserController.updateLocationPreference);

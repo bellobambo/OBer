@@ -62,6 +62,19 @@ async function createTables() {
       expires_at TIMESTAMPTZ NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    ALTER TABLE hotspots DROP CONSTRAINT IF EXISTS hotspots_status_check;
+    ALTER TABLE hotspots
+      ADD CONSTRAINT hotspots_status_check
+      CHECK (status IN ('ACTIVE', 'DISARMED', 'EXPIRED'));
+
+    CREATE INDEX IF NOT EXISTS hotspots_active_expiry_idx
+      ON hotspots (expires_at)
+      WHERE status = 'ACTIVE';
+
+    CREATE INDEX IF NOT EXISTS hotspots_active_group_idx
+      ON hotspots (LOWER(TRIM(place_name)), ROUND(longitude, 5), ROUND(latitude, 5))
+      WHERE status = 'ACTIVE';
   `);
 }
 
