@@ -213,6 +213,30 @@ function initialize(httpServer) {
         return acknowledge(callback, { success: false, message: "Unable to update driver visibility." });
       }
     });
+
+    socket.on("disconnect", async () => {
+      if (socket.user && socket.user.role === "DRIVER") {
+        try {
+          const result = await Location.updateDriverVisibility(
+            socket.user.id,
+            false,
+            undefined,
+            undefined,
+            null
+          );
+          const row = result.rows[0] || {
+            user_id: socket.user.id,
+            heading: null,
+            is_visible: false,
+            updated_at: new Date(),
+          };
+          const location = serializeDriverLocation(row);
+          io.to("PASSENGER").emit("driver:visibility", location);
+        } catch (error) {
+          console.error(`Unable to process disconnect for driver ${socket.user.id}:`, error.message);
+        }
+      }
+    });
   });
 
   expiryInterval = setInterval(expireHotspots, 5000);

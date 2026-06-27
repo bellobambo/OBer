@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
+import { SocketProvider } from "./contexts/SocketContext";
 import { Splash } from "./pages/Splash";
 import { Welcome } from "./pages/Welcome";
 import { PassengerLogin } from "./pages/PassengerLogin";
@@ -16,31 +17,33 @@ import { DriverMap } from "./pages/DriverMap";
 
 function App() {
   return (
-    <>
+    <SocketProvider>
       <Toaster position="top-center" richColors />
       <Router>
-        <Routes>
-          <Route path="/" element={<Navigate to="/splash" />} />
-          <Route path="/splash" element={<Splash />} />
-          <Route path="/welcome" element={<Welcome />} />
-          
-          {/* Passenger Routes */}
-          <Route path="/passenger/login" element={<PassengerLogin />} />
-          <Route path="/passenger/signup" element={<PassengerSignUp />} />
-          <Route path="/verify-phone" element={<OTPVerify />} />
-          <Route path="/location-permission" element={<TurnOnLocation />} />
-          <Route path="/passenger/map" element={<PassengerMap />} />
-          <Route path="/forgot-password" element={<ForgotPasswordRequest />} />
-          <Route path="/reset-password" element={<ForgotPasswordConfirm />} />
+        <div className="font-body-md text-on-background h-dvh w-dvw overflow-hidden selection:bg-[#9fcaff] selection:text-[#001d36]">
+          <Routes>
+            <Route path="/" element={<Navigate to="/splash" />} />
+            <Route path="/splash" element={<Splash />} />
+            <Route path="/welcome" element={<Welcome />} />
+            
+            {/* Passenger Routes */}
+            <Route path="/passenger/login" element={<PassengerLogin />} />
+            <Route path="/passenger/signup" element={<PassengerSignUp />} />
+            <Route path="/verify-phone" element={<OTPVerify />} />
+            <Route path="/location-permission" element={<TurnOnLocation />} />
+            <Route path="/passenger/map" element={<PassengerMap />} />
+            <Route path="/forgot-password" element={<ForgotPasswordRequest />} />
+            <Route path="/reset-password" element={<ForgotPasswordConfirm />} />
 
-          {/* Driver Routes */}
-          <Route path="/driver/signin" element={<DriverSignIn />} />
-          <Route path="/driver/signup" element={<DriverSignUp />} />
-          <Route path="/driver/pin" element={<DriverPINEntry />} />
-          <Route path="/driver/map" element={<DriverMap />} />
-        </Routes>
+            {/* Driver Routes */}
+            <Route path="/driver/signin" element={<DriverSignIn />} />
+            <Route path="/driver/signup" element={<DriverSignUp />} />
+            <Route path="/driver/pin" element={<DriverPINEntry />} />
+            <Route path="/driver/map" element={<DriverMap />} />
+          </Routes>
+        </div>
       </Router>
-    </>
+    </SocketProvider>
   );
 }
 

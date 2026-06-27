@@ -36,12 +36,14 @@ export function useDummyDrivers(centerCoords, isActive) {
       const dirX = (dx / dist) * (isApproaching ? 1 : -1);
       const dirY = (dy / dist) * (isApproaching ? 1 : -1);
 
+      const heading = (Math.atan2(dirX, dirY) * 180) / Math.PI;
+
       return {
         id: `driver_${i}_${Date.now()}`,
         coords: start,
-        // Speed factor roughly equivalent to moving down a street
         dirX: dirX * 0.00015, 
-        dirY: dirY * 0.00015
+        dirY: dirY * 0.00015,
+        heading: heading
       };
     });
 

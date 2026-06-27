@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Car, History, Wallet, User, Search, X, MapPin } from "lucide-react";
+import { Car, History, Wallet, User, Search, X, MapPin, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { useDummyDrivers } from "../hooks/useDummyDrivers";
 import { armHotspot, disarmHotspot } from "../services/api";
+import { useSocket } from "../contexts/SocketContext";
 
 const OAU_BOUNDS = [
   [4.50, 7.50], // Southwest
@@ -27,17 +28,64 @@ export function PassengerMap() {
   const location = useLocation();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isArmed, setIsArmed] = useState(false);
-  const [hotspotId, setHotspotId] = useState(null);
+  const [isArmed, setIsArmed] = useState(() => localStorage.getItem("passenger_isArmed") === "true");
+  const [hotspotId, setHotspotId] = useState(() => localStorage.getItem("passenger_hotspotId") || null);
   const [isArming, setIsArming] = useState(false);
   
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   
-  const [selectedSpot, setSelectedSpot] = useState(PREDEFINED_HOTSPOTS[0]);
-  const [timeLeft, setTimeLeft] = useState(300);
+  const [selectedSpot, setSelectedSpot] = useState(() => {
+    const saved = localStorage.getItem("passenger_selectedSpot");
+    return saved ? JSON.parse(saved) : PREDEFINED_HOTSPOTS[0];
+  });
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const expiresAt = localStorage.getItem("passenger_hotspotExpiresAt");
+    if (expiresAt) {
+      const remaining = Math.max(0, Math.floor((parseInt(expiresAt) - Date.now()) / 1000));
+      return remaining > 0 ? remaining : 300;
+    }
+    return 300;
+  });
 
-  const activeDrivers = useDummyDrivers(selectedSpot?.coords, !!selectedSpot);
+  // Clear expired hotspot on mount
+  useEffect(() => {
+    if (isArmed && timeLeft === 0) {
+      handleCancelArm();
+    }
+  }, []);
+
+  const { socket, isDemoMode, setIsDemoMode } = useSocket();
+  const dummyDrivers = useDummyDrivers(selectedSpot?.coords, !!selectedSpot);
+  const [liveDrivers, setLiveDrivers] = useState({});
+
+  useEffect(() => {
+    if (!socket || isDemoMode) return;
+    
+    const handleLocationUpdate = (payload) => {
+      setLiveDrivers(prev => {
+        if (!payload.isVisible) {
+          const copy = { ...prev };
+          delete copy[payload.driverId];
+          return copy;
+        }
+        return { 
+          ...prev, 
+          [payload.driverId]: { id: payload.driverId, coords: [payload.longitude, payload.latitude] } 
+        };
+      });
+    };
+
+    socket.on("driver:location", handleLocationUpdate);
+    socket.on("driver:visibility", handleLocationUpdate);
+
+    return () => {
+      socket.off("driver:location", handleLocationUpdate);
+      socket.off("driver:visibility", handleLocationUpdate);
+    };
+  }, [socket, isDemoMode]);
+
+  const activeDrivers = isDemoMode ? dummyDrivers : Object.values(liveDrivers);
 
   // Map Initialization
   useEffect(() => {
@@ -53,7 +101,7 @@ export function PassengerMap() {
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: "https://tiles.openfreemap.org/styles/bright", // Switched back to Bright mode!
+      style: "https://tiles.openfreemap.org/styles/bright", 
       center: initialCenter,
       zoom: 15.5,
       maxBounds: OAU_BOUNDS,
@@ -109,15 +157,42 @@ export function PassengerMap() {
       if (driverMarkersRef.current.has(d.id)) {
         const marker = driverMarkersRef.current.get(d.id);
         marker.setLngLat(d.coords);
+        if (d.heading !== undefined && d.heading !== null) {
+          marker.setRotation(d.heading);
+        }
       } else {
         const el = document.createElement("div");
-        // The CSS transition-transform handles the smooth animation!
-        el.className = "w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center border-2 border-[#3198F5] text-[#3198F5] transition-transform duration-1000 ease-linear";
-        el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H9.3a2 2 0 0 0-1.6.8L5 11l-5.16.86a1 1 0 0 0-.84.99V16h3m10 0a2 2 0 1 1-4 0m4 0a2 2 0 1 0-4 0m-10 0a2 2 0 1 1-4 0m4 0a2 2 0 1 0-4 0"/></svg>';
+        el.className = "transition-all duration-1000 ease-linear drop-shadow-xl";
+        // Sleek, top-down view of a sedan car
+        el.innerHTML = `
+          <svg width="24" height="46" viewBox="0 0 28 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Shadow under the car -->
+            <rect x="1" y="4" width="26" height="52" rx="12" fill="rgba(0,0,0,0.15)"/>
+            <!-- Main Body -->
+            <rect x="2" y="2" width="24" height="52" rx="10" fill="#2c3e50"/>
+            <!-- Roof -->
+            <rect x="4" y="16" width="20" height="24" rx="4" fill="#1a252f"/>
+            <!-- Front Windshield -->
+            <path d="M 4 16 Q 14 10 24 16 L 22 20 Q 14 17 6 20 Z" fill="#87ceeb"/>
+            <!-- Rear Windshield -->
+            <path d="M 4 40 Q 14 45 24 40 L 22 36 Q 14 38 6 36 Z" fill="#87ceeb"/>
+            <!-- Headlights -->
+            <rect x="4" y="2" width="5" height="3" rx="1.5" fill="#f1c40f"/>
+            <rect x="19" y="2" width="5" height="3" rx="1.5" fill="#f1c40f"/>
+            <!-- Taillights -->
+            <rect x="4" y="51" width="5" height="3" rx="1.5" fill="#e74c3c"/>
+            <rect x="19" y="51" width="5" height="3" rx="1.5" fill="#e74c3c"/>
+          </svg>
+        `;
         
         const marker = new maplibregl.Marker({ element: el })
           .setLngLat(d.coords)
           .addTo(mapRef.current);
+          
+        if (d.heading !== undefined && d.heading !== null) {
+          marker.setRotation(d.heading);
+        }
+          
         driverMarkersRef.current.set(d.id, marker);
       }
     });
@@ -158,7 +233,7 @@ export function PassengerMap() {
     if (isArmed && timeLeft > 0) {
       timerId = setInterval(() => setTimeLeft(p => p - 1), 1000);
     } else if (timeLeft === 0 && isArmed) {
-      handleCancelArm(); // Cancel automatically when done
+      handleCancelArm(); 
     }
     return () => clearInterval(timerId);
   }, [isArmed, timeLeft]);
@@ -168,9 +243,16 @@ export function PassengerMap() {
     setIsArming(true);
     try {
       const data = await armHotspot(selectedSpot.name, selectedSpot.coords);
-      setHotspotId(data.data?.hotspotId || data.hotspotId || data.data?.hotspot?.id);
+      const newHotspotId = data.data?.hotspotId || data.hotspotId || data.data?.hotspot?.id;
+      setHotspotId(newHotspotId);
       setIsArmed(true);
       setTimeLeft(300);
+      
+      localStorage.setItem("passenger_isArmed", "true");
+      if (newHotspotId) localStorage.setItem("passenger_hotspotId", newHotspotId);
+      localStorage.setItem("passenger_selectedSpot", JSON.stringify(selectedSpot));
+      localStorage.setItem("passenger_hotspotExpiresAt", Date.now() + 300 * 1000);
+
       toast.success("Hotspot armed successfully!");
     } catch (e) {
       toast.error(e.message || "Failed to arm hotspot");
@@ -190,6 +272,11 @@ export function PassengerMap() {
     setHotspotId(null);
     setIsArmed(false);
     setTimeLeft(300);
+    
+    localStorage.removeItem("passenger_isArmed");
+    localStorage.removeItem("passenger_hotspotId");
+    localStorage.removeItem("passenger_selectedSpot");
+    localStorage.removeItem("passenger_hotspotExpiresAt");
   };
 
   const formatTime = (seconds) => {
@@ -242,8 +329,23 @@ export function PassengerMap() {
           </div>
           <span className="text-2xl font-bold tracking-tight text-[#3198F5]">Ber</span>
         </div>
-        <div className="w-9 h-9 rounded-full overflow-hidden border border-[#c1c7d2]">
-          <img alt="Profile" className="w-full h-full object-cover" src="https://ui-avatars.com/api/?name=User&background=3198F5&color=fff" />
+        
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setIsDemoMode(!isDemoMode)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors border shadow-sm ${
+              isDemoMode 
+                ? "bg-amber-100 text-amber-800 border-amber-300" 
+                : "bg-emerald-100 text-emerald-800 border-emerald-300"
+            }`}
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+            {isDemoMode ? "Demo Mode" : "Live Mode"}
+          </button>
+          
+          <div className="w-9 h-9 rounded-full overflow-hidden border border-[#c1c7d2]">
+            <img alt="Profile" className="w-full h-full object-cover" src="https://ui-avatars.com/api/?name=User&background=3198F5&color=fff" />
+          </div>
         </div>
       </header>
 
