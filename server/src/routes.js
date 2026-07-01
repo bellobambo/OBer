@@ -1,9 +1,11 @@
 const express = require("express");
+const AdminController = require("./controllers/adminController");
 const AuthController = require("./controllers/authController");
 const HomeController = require("./controllers/homeController");
 const LocationController = require("./controllers/locationController");
 const HotspotController = require("./controllers/hotspotController");
 const UserController = require("./controllers/userController");
+const { requireAdmin } = require("./middlewares/admin");
 const { requireAuth } = require("./middlewares/auth");
 
 const router = express.Router();
@@ -18,6 +20,12 @@ router.post("/api/login", AuthController.login);
 router.get("/api/me", AuthController.me);
 router.post("/api/password-reset/request", AuthController.requestPasswordReset);
 router.post("/api/password-reset/confirm", AuthController.resetPassword);
+
+// Admin routes
+router.get("/api/admin/me", requireAuth, requireAdmin, AdminController.me);
+router.get("/api/admin/drivers", requireAuth, requireAdmin, AdminController.listDrivers);
+router.get("/api/admin/drivers/stats", requireAuth, requireAdmin, AdminController.getDriverStats);
+router.post("/api/admin/drivers", requireAuth, requireAdmin, AdminController.onboardDriver);
 
 // Location routes
 router.put("/api/location", requireAuth, LocationController.updateLocation);

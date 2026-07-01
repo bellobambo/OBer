@@ -5,6 +5,7 @@ async function createTables() {
     CREATE TABLE IF NOT EXISTS users (
       id BIGSERIAL PRIMARY KEY,
       role VARCHAR(20) NOT NULL DEFAULT 'PASSENGER' CHECK (role IN ('PASSENGER', 'DRIVER')),
+      full_name VARCHAR(160),
       email VARCHAR(160) NOT NULL UNIQUE,
       phone VARCHAR(40) NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
@@ -27,19 +28,36 @@ async function createTables() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verification_expires_at TIMESTAMPTZ;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_code VARCHAR(6);
     ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMPTZ;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(160);
     CREATE UNIQUE INDEX IF NOT EXISTS users_phone_unique_idx ON users(phone);
 
     CREATE TABLE IF NOT EXISTS drivers (
       id BIGSERIAL PRIMARY KEY,
       user_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
       driver_code VARCHAR(100) NOT NULL,
+      vehicle_id VARCHAR(100),
+      vehicle_type VARCHAR(100),
+      license_number VARCHAR(100),
+      onboarding_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS location_tracking_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 
     ALTER TABLE drivers ADD COLUMN IF NOT EXISTS driver_code VARCHAR(100);
+    ALTER TABLE drivers ADD COLUMN IF NOT EXISTS vehicle_id VARCHAR(100);
+    ALTER TABLE drivers ADD COLUMN IF NOT EXISTS vehicle_type VARCHAR(100);
+    ALTER TABLE drivers ADD COLUMN IF NOT EXISTS license_number VARCHAR(100);
+    ALTER TABLE drivers ADD COLUMN IF NOT EXISTS onboarding_status VARCHAR(20) NOT NULL DEFAULT 'PENDING';
     CREATE UNIQUE INDEX IF NOT EXISTS drivers_driver_code_unique_idx ON drivers(driver_code);
+    ALTER TABLE drivers DROP CONSTRAINT IF EXISTS drivers_vehicle_type_check;
+    ALTER TABLE drivers
+      ADD CONSTRAINT drivers_vehicle_type_check
+      CHECK (vehicle_type IS NULL OR vehicle_type IN ('BUS', 'TRICYCLE'));
+    ALTER TABLE drivers DROP CONSTRAINT IF EXISTS drivers_onboarding_status_check;
+    ALTER TABLE drivers
+      ADD CONSTRAINT drivers_onboarding_status_check
+      CHECK (onboarding_status IN ('PENDING', 'COMPLETE', 'SUSPENDED'));
 
     CREATE TABLE IF NOT EXISTS user_locations (
       user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

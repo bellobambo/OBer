@@ -1,0 +1,19 @@
+meta {
+  name: List Drivers
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/admin/drivers
+  body: none
+  auth: bearer
+}
+
+params:query {
+  search: {{ADMIN_DRIVER_SEARCH}}
+}
+
+auth:bearer {
+  token: {{AUTH_TOKEN}}
+}

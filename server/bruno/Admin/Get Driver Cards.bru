@@ -1,0 +1,15 @@
+meta {
+  name: Get Driver Cards
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/admin/drivers/stats
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{AUTH_TOKEN}}
+}

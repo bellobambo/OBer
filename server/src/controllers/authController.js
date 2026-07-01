@@ -34,6 +34,7 @@ async function register(req, res) {
 
     const userResult = await User.create(client, {
       role: data.role,
+      fullName: data.fullName,
       email: data.email,
       phone: data.phone,
       passwordHash: hashPassword(data.password),
@@ -45,6 +46,10 @@ async function register(req, res) {
       await Driver.create(client, {
         userId: userResult.rows[0].id,
         driverCode: data.driverCode,
+        vehicleId: data.vehicleId,
+        vehicleType: data.vehicleType,
+        licenseNumber: data.licenseNumber,
+        onboardingStatus: "PENDING",
       });
     }
 
