@@ -1,16 +1,17 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand: #3198F5;
-  --color-brand-light: #F0F7FF;
-  --color-brand-dark: #207CCC;
+  --color-brand: #3198f5;
+  --color-brand-light: #f0f7ff;
+  --color-brand-dark: #207ccc;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
-  html, body {
+  html,
+  body {
     @apply m-0 p-0 w-full h-full;
-    background-color: #FFFFFF;
+    background-color: #ffffff;
     color: #111827;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -19,13 +20,27 @@
 
 @layer utilities {
   .azure-glow {
-    box-shadow: 0 0 20px 2px rgba(49, 152, 245, 0.4), 
-                0 0 40px 8px rgba(49, 152, 245, 0.2);
+    box-shadow:
+      0 0 20px 2px rgba(49, 152, 245, 0.4),
+      0 0 40px 8px rgba(49, 152, 245, 0.2);
     animation: glow-pulse 3s infinite ease-in-out;
   }
 }
 
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 20px 2px rgba(49, 152, 245, 0.4), 0 0 40px 8px rgba(49, 152, 245, 0.2); }
-  50% { box-shadow: 0 0 30px 6px rgba(49, 152, 245, 0.6), 0 0 50px 12px rgba(49, 152, 245, 0.3); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 20px 2px rgba(49, 152, 245, 0.4),
+      0 0 40px 8px rgba(49, 152, 245, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 30px 6px rgba(49, 152, 245, 0.6),
+      0 0 50px 12px rgba(49, 152, 245, 0.3);
+  }
 }
+
+@custom-variant short-screen (@media (max-height: 700px));
+@custom-variant medium-screen (@media (min-height: 701px) and (max-height: 900px));
+@custom-variant tall-screen (@media (min-height: 901px));
