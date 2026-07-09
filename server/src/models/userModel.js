@@ -4,6 +4,7 @@ function toResponse(user) {
   return {
     id: user.id,
     role: user.role,
+    fullName: user.full_name,
     email: user.email,
     phone: user.phone,
     phoneVerified: user.phone_verified,
@@ -16,19 +17,23 @@ async function create(client, user) {
   return client.query(
     `INSERT INTO users (
       role,
+      full_name,
       email,
       phone,
       password_hash,
+      phone_verified,
       phone_verification_code,
       phone_verification_expires_at
      )
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, role, email, phone, phone_verified, created_at`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING id, role, full_name, email, phone, phone_verified, created_at`,
     [
       user.role,
+      user.fullName || null,
       user.email,
       user.phone,
       user.passwordHash,
+      Boolean(user.phoneVerified),
       user.phoneVerificationCode,
       user.phoneVerificationExpiresAt,
     ]
@@ -38,7 +43,7 @@ async function create(client, user) {
 async function findByLogin(login) {
   return pool.query(
     `SELECT users.id, users.role, users.email, users.phone, users.password_hash,
-            users.phone_verified, users.password_reset_code,
+            users.full_name, users.phone_verified, users.password_reset_code,
             users.password_reset_expires_at, users.created_at
      FROM users
      LEFT JOIN drivers ON drivers.user_id = users.id
@@ -52,7 +57,7 @@ async function findByLogin(login) {
 
 async function findPublicById(id) {
   return pool.query(
-    `SELECT id, role, email, phone, phone_verified, location_tracking_enabled, created_at
+    `SELECT id, role, full_name, email, phone, phone_verified, location_tracking_enabled, created_at
      FROM users
      WHERE id = $1
      LIMIT 1`,
@@ -69,7 +74,7 @@ async function verifyPhone(phone, code) {
      WHERE phone = $1
        AND phone_verification_code = $2
        AND phone_verification_expires_at > NOW()
-     RETURNING id, role, email, phone, phone_verified, created_at`,
+     RETURNING id, role, full_name, email, phone, phone_verified, created_at`,
     [phone, code]
   );
 }
@@ -91,7 +96,7 @@ async function updatePassword(userId, passwordHash) {
          password_reset_code = NULL,
          password_reset_expires_at = NULL
      WHERE id = $1
-     RETURNING id, role, email, phone, phone_verified, created_at`,
+     RETURNING id, role, full_name, email, phone, phone_verified, created_at`,
     [userId, passwordHash]
   );
 }
@@ -101,7 +106,7 @@ async function updateLocationPreference(userId, trackingEnabled) {
     `UPDATE users
      SET location_tracking_enabled = $2
      WHERE id = $1
-     RETURNING id, role, email, phone, location_tracking_enabled, created_at`,
+     RETURNING id, role, full_name, email, phone, location_tracking_enabled, created_at`,
     [userId, trackingEnabled]
   );
 }

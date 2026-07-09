@@ -78,6 +78,77 @@ npm start
 
 Drivers can toggle whether they appear on the passenger map.
 
+## Admin Driver Onboarding
+
+Admin endpoints are protected by the normal bearer token plus an email allowlist.
+Add selected admin account emails to `.env`:
+
+```text
+ADMIN_EMAILS=transport.admin@example.com,ops@example.com
+```
+
+These users can call `/api/admin/*` after logging in through the existing auth
+flow. Admin-created drivers are marked phone-verified because the account is
+provisioned by the transport office.
+
+### `GET /api/admin/me`
+
+Confirms that the current bearer token belongs to an allowed admin email.
+
+### `GET /api/admin/drivers/stats`
+
+Returns the card counts for the admin dashboard:
+
+```json
+{
+  "success": true,
+  "message": "Driver stats retrieved successfully.",
+  "data": {
+    "stats": {
+      "totalDrivers": 312,
+      "driversOnDuty": 148,
+      "readyDrivers": 298,
+      "totalBusDrivers": 82,
+      "totalTricycleDrivers": 230
+    }
+  }
+}
+```
+
+- `totalDrivers`: all users with role `DRIVER`.
+- `driversOnDuty`: drivers whose visibility is currently enabled.
+- `readyDrivers`: drivers with `onboardingStatus` set to `COMPLETE`.
+- `totalBusDrivers`: onboarded drivers assigned to a bus.
+- `totalTricycleDrivers`: onboarded drivers assigned to a tricycle.
+
+### `GET /api/admin/drivers`
+
+Returns onboarded drivers. Optional `search` matches name, email, phone, driver
+code, or vehicle ID:
+
+```http
+GET /api/admin/drivers?search=OAU-2207
+```
+
+### `POST /api/admin/drivers`
+
+Creates a driver account, generates a unique driver code such as `OAU-2207`, and
+stores the vehicle/document details used by the admin dashboard.
+
+```json
+{
+  "fullName": "Adewale Kolawole",
+  "email": "adewale@example.com",
+  "phone": "08118228328",
+  "password": "12345678",
+  "vehicleId": "OAU-TR-114",
+  "vehicleType": "TRICYCLE",
+  "licenseNumber": "LCV-2207"
+}
+```
+
+`vehicleType` must be either `BUS` or `TRICYCLE`. `licenseNumber` is optional.
+
 ### `PUT /api/location/visibility`
 
 Requires a bearer token for a driver account.

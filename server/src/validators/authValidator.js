@@ -2,14 +2,19 @@ const { getField } = require("../utils/request");
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALID_ROLES = new Set(["PASSENGER", "DRIVER"]);
+const VEHICLE_TYPES = new Set(["BUS", "TRICYCLE"]);
 
 function validateRegistration(body) {
   const data = {
     role: getField(body, "role").toUpperCase(),
+    fullName: getField(body, "fullName", "full_name", "name"),
     email: getField(body, "email").toLowerCase(),
     phone: getField(body, "phone"),
     password: getField(body, "password"),
     driverCode: getField(body, "driverCode"),
+    vehicleId: getField(body, "vehicleId", "vehicle_id"),
+    vehicleType: getField(body, "vehicleType", "vehicle_type").toUpperCase(),
+    licenseNumber: getField(body, "licenseNumber", "license_number", "licenceNumber", "licence_number"),
   };
 
   const errors = [];
@@ -36,6 +41,10 @@ function validateRegistration(body) {
 
   if (data.role === "DRIVER" && !data.driverCode) {
     errors.push("driverCode is required when role is DRIVER.");
+  }
+
+  if (data.vehicleType && !VEHICLE_TYPES.has(data.vehicleType)) {
+    errors.push("vehicleType must be BUS or TRICYCLE.");
   }
 
   return { data, errors };
