@@ -11,13 +11,12 @@ function index(_req, res) {
   });
 }
 
-async function health(_req, res) {
+async function getStatus(req, res) {
   try {
-    await pool.query("SELECT 1");
-
-    return sendSuccess(res, 200, "API and database are healthy.", {
-      status: "ok",
+    return res.json({
+      status: "online",
       database: "connected",
+      message: "OBer API is running.",
     });
   } catch (error) {
     return sendError(res, 500, "Database health check failed.", {
@@ -29,6 +28,6 @@ async function health(_req, res) {
 }
 
 module.exports = {
-  health,
+  health: getStatus,
   index,
 };

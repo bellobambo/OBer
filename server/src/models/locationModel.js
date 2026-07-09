@@ -1,135 +1,85 @@
-const pool = require("../db");
+const supabase = require("../db");
 
 class Location {
   static async updateLocation(userId, latitude, longitude, heading) {
-    const query = `
-      INSERT INTO user_locations (user_id, latitude, longitude, heading, updated_at)
-      VALUES ($1, $2, $3, $4, NOW())
-      ON CONFLICT (user_id)
-      DO UPDATE SET
-        latitude = EXCLUDED.latitude,
-        longitude = EXCLUDED.longitude,
-        heading = EXCLUDED.heading,
-        updated_at = NOW()
-      RETURNING *;
-    `;
-    return pool.query(query, [userId, latitude, longitude, heading]);
+    const { data, error } = await supabase
+      .from('user_locations')
+      .upsert({
+        user_id: userId,
+        latitude,
+        longitude,
+        heading,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' })
+      .select();
+    if (error) throw error;
+    return { rows: data || [], rowCount: data ? data.length : 0 };
   }
 
   static async updateDriverVisibility(userId, isVisible, latitude, longitude, heading) {
     if (!isVisible) {
-      return pool.query(
-        `UPDATE user_locations
-         SET is_visible = FALSE,
-             updated_at = NOW()
-         WHERE user_id = $1
-         RETURNING *`,
-        [userId]
-      );
+      const { data, error } = await supabase
+        .from('user_locations')
+        .update({ is_visible: false, updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .select();
+      if (error) throw error;
+      return { rows: data || [], rowCount: data ? data.length : 0 };
     }
 
-    const query = `
-      INSERT INTO user_locations (user_id, latitude, longitude, heading, is_visible, updated_at)
-      VALUES ($1, $2, $3, $4, TRUE, NOW())
-      ON CONFLICT (user_id)
-      DO UPDATE SET
-        latitude = EXCLUDED.latitude,
-        longitude = EXCLUDED.longitude,
-        heading = EXCLUDED.heading,
-        is_visible = TRUE,
-        updated_at = NOW()
-      RETURNING *;
-    `;
-    return pool.query(query, [userId, latitude, longitude, heading]);
-  }
-
-  static async getNearbyDrivers(latitude, longitude, radiusInKm = 5) {
-    const query = `
-      SELECT * FROM (
-        SELECT
-          u.id as driver_id,
-          u.phone,
-          d.driver_code,
-          l.latitude,
-          l.longitude,
-          l.heading,
-          l.is_visible,
-          l.updated_at,
-          (
-            6371 * acos(
-              cos(radians($1)) * cos(radians(l.latitude)) *
-              cos(radians(l.longitude) - radians($2)) +
-              sin(radians($1)) * sin(radians(l.latitude))
-            )
-          ) AS distance
-        FROM user_locations l
-        JOIN users u ON l.user_id = u.id
-        JOIN drivers d ON u.id = d.user_id
-        WHERE u.role = 'DRIVER'
-          AND l.is_visible = TRUE
-          AND l.updated_at > NOW() - INTERVAL '5 minutes'
-      ) as sub
-      WHERE distance <= $3
-      ORDER BY distance ASC;
-    `;
-    return pool.query(query, [latitude, longitude, radiusInKm]);
-  }
-
-  static async getDriverLocation(driverId) {
-    const query = `
-      SELECT
-        l.latitude,
-        l.longitude,
-        l.heading,
-        l.is_visible,
-        l.updated_at
-      FROM user_locations l
-      JOIN users u ON l.user_id = u.id
-      WHERE u.role = 'DRIVER' AND u.id = $1 AND l.is_visible = TRUE
-    `;
-    return pool.query(query, [driverId]);
-  }
-
-  static async getUserLocation(userId) {
-    const query = `
-      SELECT
+    const { data, error } = await supabase
+      .from('user_locations')
+      .upsert({
+        user_id: userId,
         latitude,
         longitude,
         heading,
-        is_visible,
-        updated_at
-      FROM user_locations
-      WHERE user_id = $1
-    `;
-    return pool.query(query, [userId]);
+        is_visible: true,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' })
+      .select();
+    if (error) throw error;
+    return { rows: data || [], rowCount: data ? data.length : 0 };
+  }
+
+  static async getNearbyDrivers(latitude, longitude, radiusInKm = 5) {
+    const { data, error } = await supabase.rpc('get_nearby_drivers', {
+      p_latitude: latitude,
+      p_longitude: longitude,
+      p_radius_in_km: radiusInKm
+    });
+    if (error) throw error;
+    return { rows: data || [], rowCount: data ? data.length : 0 };
+  }
+
+  static async getDriverLocation(driverId) {
+    const { data, error } = await supabase
+      .from('user_locations')
+      .select('latitude, longitude, heading, is_visible, updated_at, users!inner(role)')
+      .eq('user_id', driverId)
+      .eq('is_visible', true)
+      .eq('users.role', 'DRIVER');
+    if (error) throw error;
+    return { rows: data || [], rowCount: data ? data.length : 0 };
+  }
+
+  static async getUserLocation(userId) {
+    const { data, error } = await supabase
+      .from('user_locations')
+      .select('latitude, longitude, heading, is_visible, updated_at')
+      .eq('user_id', userId);
+    if (error) throw error;
+    return { rows: data || [], rowCount: data ? data.length : 0 };
   }
 
   static async getNearbyUsers(latitude, longitude, radiusInKm = 5) {
-    const query = `
-      SELECT * FROM (
-        SELECT
-          u.id as user_id,
-          u.role,
-          l.latitude,
-          l.longitude,
-          l.heading,
-          l.is_visible,
-          l.updated_at,
-          (
-            6371 * acos(
-              cos(radians($1)) * cos(radians(l.latitude)) *
-              cos(radians(l.longitude) - radians($2)) +
-              sin(radians($1)) * sin(radians(l.latitude))
-            )
-          ) AS distance
-        FROM user_locations l
-        JOIN users u ON l.user_id = u.id
-        WHERE l.updated_at > NOW() - INTERVAL '5 minutes'
-      ) as sub
-      WHERE distance <= $3
-      ORDER BY distance ASC;
-    `;
-    return pool.query(query, [latitude, longitude, radiusInKm]);
+    const { data, error } = await supabase.rpc('get_nearby_users', {
+      p_latitude: latitude,
+      p_longitude: longitude,
+      p_radius_in_km: radiusInKm
+    });
+    if (error) throw error;
+    return { rows: data || [], rowCount: data ? data.length : 0 };
   }
 }
 

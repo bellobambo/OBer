@@ -1,4 +1,4 @@
-const pool = require("../db");
+const supabase = require("../db");
 
 function toResponse(user) {
   return {
@@ -14,111 +14,138 @@ function toResponse(user) {
 }
 
 async function create(client, user) {
-  return client.query(
-    `INSERT INTO users (
-      role,
-      full_name,
-      email,
-      phone,
-      password_hash,
-      phone_verified,
-      phone_verification_code,
-      phone_verification_expires_at
-     )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     RETURNING id, role, full_name, email, phone, phone_verified, created_at`,
-    [
-      user.role,
-      user.fullName || null,
-      user.email,
-      user.phone,
-      user.passwordHash,
-      Boolean(user.phoneVerified),
-      user.phoneVerificationCode,
-      user.phoneVerificationExpiresAt,
-    ]
-  );
+  const { data, error } = await supabase
+    .from('users')
+    .insert({
+      role: user.role,
+      full_name: user.fullName || null,
+      email: user.email,
+      phone: user.phone,
+      password_hash: user.passwordHash,
+      phone_verified: Boolean(user.phoneVerified),
+      phone_verification_code: user.phoneVerificationCode,
+      phone_verification_expires_at: user.phoneVerificationExpiresAt
+    })
+    .select('id, role, full_name, email, phone, phone_verified, created_at');
+
+  if (error) throw error;
+  return { rows: data || [], rowCount: data ? data.length : 0 };
 }
 
 async function findByLogin(login) {
-  return pool.query(
-    `SELECT users.id, users.role, users.email, users.phone, users.password_hash,
-            users.full_name, users.phone_verified, users.password_reset_code,
-            users.password_reset_expires_at, users.created_at
-     FROM users
-     LEFT JOIN drivers ON drivers.user_id = users.id
-     WHERE LOWER(users.email) = $1
-        OR users.phone = $2
-        OR drivers.driver_code = $2
-     LIMIT 1`,
-    [login.toLowerCase(), login]
-  );
+  const search = login.toLowerCase();
+  
+  let { data, error } = await supabase
+    .from('users')
+    .select('id, role, email, phone, password_hash, full_name, phone_verified, password_reset_code, password_reset_expires_at, created_at, drivers!left(driver_code)')
+    .or(`email.eq.${search},phone.eq.${login}`);
+    
+  if (error) throw error;
+  
+  if (!data || data.length === 0) {
+    const { data: driverData, error: driverErr } = await supabase
+      .from('drivers')
+      .select('user_id')
+      .eq('driver_code', login)
+      .limit(1);
+    
+    if (driverErr) throw driverErr;
+    if (driverData && driverData.length > 0) {
+      const { data: uData, error: uErr } = await supabase
+        .from('users')
+        .select('id, role, email, phone, password_hash, full_name, phone_verified, password_reset_code, password_reset_expires_at, created_at, drivers!left(driver_code)')
+        .eq('id', driverData[0].user_id);
+      if (uErr) throw uErr;
+      data = uData;
+    }
+  }
+
+  return { rows: data || [], rowCount: data ? data.length : 0 };
 }
 
 async function findPublicById(id) {
-  return pool.query(
-    `SELECT id, role, full_name, email, phone, phone_verified, location_tracking_enabled, created_at
-     FROM users
-     WHERE id = $1
-     LIMIT 1`,
-    [id]
-  );
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, role, full_name, email, phone, phone_verified, location_tracking_enabled, created_at')
+    .eq('id', id)
+    .limit(1);
+  if (error) throw error;
+  return { rows: data || [], rowCount: data ? data.length : 0 };
 }
 
 async function verifyPhone(phone, code) {
-  return pool.query(
-    `UPDATE users
-     SET phone_verified = TRUE,
-         phone_verification_code = NULL,
-         phone_verification_expires_at = NULL
-     WHERE phone = $1
-       AND phone_verification_code = $2
-       AND phone_verification_expires_at > NOW()
-     RETURNING id, role, full_name, email, phone, phone_verified, created_at`,
-    [phone, code]
-  );
+  const { data: users, error: selectErr } = await supabase
+    .from('users')
+    .select('id')
+    .eq('phone', phone)
+    .eq('phone_verification_code', code)
+    .gt('phone_verification_expires_at', new Date().toISOString());
+    
+  if (selectErr) throw selectErr;
+  if (!users || users.length === 0) return { rows: [], rowCount: 0 };
+  
+  const { data, error } = await supabase
+    .from('users')
+    .update({
+      phone_verified: true,
+      phone_verification_code: null,
+      phone_verification_expires_at: null
+    })
+    .eq('id', users[0].id)
+    .select('id, role, full_name, email, phone, phone_verified, created_at');
+    
+  if (error) throw error;
+  return { rows: data || [], rowCount: data ? data.length : 0 };
 }
 
 async function setPasswordResetCode(userId, resetCode, expiresAt) {
-  return pool.query(
-    `UPDATE users
-     SET password_reset_code = $2,
-         password_reset_expires_at = $3
-     WHERE id = $1`,
-    [userId, resetCode, expiresAt]
-  );
+  const { data, error } = await supabase
+    .from('users')
+    .update({
+      password_reset_code: resetCode,
+      password_reset_expires_at: expiresAt
+    })
+    .eq('id', userId)
+    .select();
+  if (error) throw error;
+  return { rows: data || [], rowCount: data ? data.length : 0 };
 }
 
 async function updatePassword(userId, passwordHash) {
-  return pool.query(
-    `UPDATE users
-     SET password_hash = $2,
-         password_reset_code = NULL,
-         password_reset_expires_at = NULL
-     WHERE id = $1
-     RETURNING id, role, full_name, email, phone, phone_verified, created_at`,
-    [userId, passwordHash]
-  );
+  const { data, error } = await supabase
+    .from('users')
+    .update({
+      password_hash: passwordHash,
+      password_reset_code: null,
+      password_reset_expires_at: null
+    })
+    .eq('id', userId)
+    .select('id, role, full_name, email, phone, phone_verified, created_at');
+  if (error) throw error;
+  return { rows: data || [], rowCount: data ? data.length : 0 };
 }
 
 async function updateLocationPreference(userId, trackingEnabled) {
-  return pool.query(
-    `UPDATE users
-     SET location_tracking_enabled = $2
-     WHERE id = $1
-     RETURNING id, role, full_name, email, phone, location_tracking_enabled, created_at`,
-    [userId, trackingEnabled]
-  );
+  const { data, error } = await supabase
+    .from('users')
+    .update({ location_tracking_enabled: trackingEnabled })
+    .eq('id', userId)
+    .select('id, role, full_name, email, phone, location_tracking_enabled, created_at');
+  if (error) throw error;
+  return { rows: data || [], rowCount: data ? data.length : 0 };
 }
 
 async function updatePhoneVerificationCode(userId, code, expiresAt) {
-  return pool.query(
-    `UPDATE users
-     SET phone_verification_code = $2,
-         phone_verification_expires_at = $3
-     WHERE id = $1`,
-    [userId, code, expiresAt]
-  );
+  const { data, error } = await supabase
+    .from('users')
+    .update({
+      phone_verification_code: code,
+      phone_verification_expires_at: expiresAt
+    })
+    .eq('id', userId)
+    .select();
+  if (error) throw error;
+  return { rows: data || [], rowCount: data ? data.length : 0 };
 }
 
 module.exports = {

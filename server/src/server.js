@@ -5,7 +5,6 @@ const cors = require("cors");
 const http = require("http");
 const routes = require("./routes");
 const Realtime = require("./realtime");
-const { createTables } = require("./schema");
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -16,12 +15,7 @@ app.use(express.json());
 app.use(routes);
 
 async function startServer() {
-  try {
-    await createTables();
-    console.log("Database tables are ready.");
-  } catch (error) {
-    console.error("Unable to initialize database tables:", error.message);
-  }
+  console.log("Database tables must be created via Supabase SQL Editor.");
 
   Realtime.initialize(httpServer);
 

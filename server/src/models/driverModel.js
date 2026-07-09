@@ -1,25 +1,19 @@
+const supabase = require("../db");
+
 async function create(client, driver) {
-  return client.query(
-    `INSERT INTO drivers (
-      user_id,
-      driver_code,
-      vehicle_id,
-      vehicle_type,
-      license_number,
-      onboarding_status
-     )
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, user_id, driver_code, vehicle_id, vehicle_type, license_number,
-       onboarding_status, created_at`,
-    [
-      driver.userId,
-      driver.driverCode,
-      driver.vehicleId || null,
-      driver.vehicleType || null,
-      driver.licenseNumber || null,
-      driver.onboardingStatus || "PENDING",
-    ]
-  );
+  const { data, error } = await supabase
+    .from('drivers')
+    .insert({
+      user_id: driver.userId,
+      driver_code: driver.driverCode,
+      vehicle_id: driver.vehicleId || null,
+      vehicle_type: driver.vehicleType || null,
+      license_number: driver.licenseNumber || null,
+      onboarding_status: driver.onboardingStatus || "PENDING"
+    })
+    .select('id, user_id, driver_code, vehicle_id, vehicle_type, license_number, onboarding_status, created_at');
+  if (error) throw error;
+  return { rows: data || [], rowCount: data ? data.length : 0 };
 }
 
 function toAdminResponse(row) {
@@ -41,63 +35,82 @@ function toAdminResponse(row) {
 }
 
 async function listAdmin(client, options = {}) {
-  const search = options.search ? `%${String(options.search).toLowerCase()}%` : null;
+  let query = supabase
+    .from('drivers')
+    .select(`
+      id,
+      user_id,
+      driver_code,
+      vehicle_id,
+      vehicle_type,
+      license_number,
+      onboarding_status,
+      created_at,
+      users!inner(full_name, email, phone, phone_verified, role),
+      user_locations!left(is_visible)
+    `)
+    .eq('users.role', 'DRIVER')
+    .order('created_at', { ascending: false });
 
-  return client.query(
-    `SELECT
-       drivers.id,
-       drivers.user_id,
-       users.full_name,
-       users.email,
-       users.phone,
-       users.phone_verified,
-       drivers.driver_code,
-       drivers.vehicle_id,
-       drivers.vehicle_type,
-       drivers.license_number,
-       drivers.onboarding_status,
-       drivers.created_at,
-       COALESCE(user_locations.is_visible, FALSE) AS is_on_duty
-     FROM drivers
-     INNER JOIN users ON users.id = drivers.user_id
-     LEFT JOIN user_locations ON user_locations.user_id = users.id
-     WHERE users.role = 'DRIVER'
-       AND (
-         $1::TEXT IS NULL
-         OR LOWER(COALESCE(users.full_name, '')) LIKE $1
-         OR LOWER(users.email) LIKE $1
-         OR users.phone LIKE $1
-         OR LOWER(drivers.driver_code) LIKE $1
-         OR LOWER(COALESCE(drivers.vehicle_id, '')) LIKE $1
-       )
-     ORDER BY drivers.created_at DESC`,
-    [search]
-  );
+  if (options.search) {
+    const s = `%${options.search}%`;
+    query = query.or(`driver_code.ilike.${s},vehicle_id.ilike.${s},users.full_name.ilike.${s},users.email.ilike.${s},users.phone.ilike.${s}`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const flattened = (data || []).map(d => ({
+    ...d,
+    full_name: d.users?.full_name,
+    email: d.users?.email,
+    phone: d.users?.phone,
+    phone_verified: d.users?.phone_verified,
+    is_on_duty: d.user_locations && d.user_locations.length > 0 ? d.user_locations[0].is_visible : false
+  }));
+
+  return { rows: flattened, rowCount: flattened.length };
 }
 
 async function getAdminStats(client) {
-  return client.query(
-    `SELECT
-       COUNT(*)::INT AS total_drivers,
-       COUNT(*) FILTER (WHERE COALESCE(user_locations.is_visible, FALSE))::INT AS drivers_on_duty,
-       COUNT(*) FILTER (WHERE drivers.onboarding_status = 'COMPLETE')::INT AS ready_drivers,
-       COUNT(*) FILTER (WHERE drivers.vehicle_type = 'BUS')::INT AS total_bus_drivers,
-       COUNT(*) FILTER (WHERE drivers.vehicle_type = 'TRICYCLE')::INT AS total_tricycle_drivers
-     FROM users
-     INNER JOIN drivers ON drivers.user_id = users.id
-     LEFT JOIN user_locations ON user_locations.user_id = users.id
-     WHERE users.role = 'DRIVER'`
-  );
+  const { data, error } = await supabase
+    .from('drivers')
+    .select(`
+      id,
+      onboarding_status,
+      vehicle_type,
+      users!inner(role),
+      user_locations!left(is_visible)
+    `)
+    .eq('users.role', 'DRIVER');
+    
+  if (error) throw error;
+
+  let total_drivers = 0;
+  let drivers_on_duty = 0;
+  let ready_drivers = 0;
+  let total_bus_drivers = 0;
+  let total_tricycle_drivers = 0;
+
+  for (const d of (data || [])) {
+    total_drivers++;
+    if (d.user_locations && d.user_locations.length > 0 && d.user_locations[0].is_visible) drivers_on_duty++;
+    if (d.onboarding_status === 'COMPLETE') ready_drivers++;
+    if (d.vehicle_type === 'BUS') total_bus_drivers++;
+    if (d.vehicle_type === 'TRICYCLE') total_tricycle_drivers++;
+  }
+
+  return { rows: [{ total_drivers, drivers_on_duty, ready_drivers, total_bus_drivers, total_tricycle_drivers }], rowCount: 1 };
 }
 
 async function findByCode(client, driverCode) {
-  return client.query(
-    `SELECT id, driver_code
-     FROM drivers
-     WHERE driver_code = $1
-     LIMIT 1`,
-    [driverCode]
-  );
+  const { data, error } = await supabase
+    .from('drivers')
+    .select('id, driver_code')
+    .eq('driver_code', driverCode)
+    .limit(1);
+  if (error) throw error;
+  return { rows: data || [], rowCount: data ? data.length : 0 };
 }
 
 module.exports = {
