@@ -34,8 +34,6 @@ export function PassengerMap() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-<<<<<<< HEAD
-  
   const [selectedSpot, setSelectedSpot] = useState(() => {
     const saved = localStorage.getItem("passenger_selectedSpot");
     return saved ? JSON.parse(saved) : PREDEFINED_HOTSPOTS[0];
@@ -48,11 +46,6 @@ export function PassengerMap() {
     }
     return 300;
   });
-=======
-
-  const [selectedSpot, setSelectedSpot] = useState(PREDEFINED_HOTSPOTS[0]);
-  const [timeLeft, setTimeLeft] = useState(300);
->>>>>>> b13b1481834fa77e72c1b66a26bcccd949a1ef70
 
   // Clear expired hotspot on mount
   useEffect(() => {
@@ -190,7 +183,6 @@ export function PassengerMap() {
         }
       } else {
         const el = document.createElement("div");
-<<<<<<< HEAD
         el.className = "transition-all duration-1000 ease-linear drop-shadow-xl";
         // Sleek, top-down view of a sedan car
         el.innerHTML = `
@@ -213,15 +205,6 @@ export function PassengerMap() {
             <rect x="19" y="51" width="5" height="3" rx="1.5" fill="#e74c3c"/>
           </svg>
         `;
-        
-=======
-        // The CSS transition-transform handles the smooth animation!
-        el.className =
-          "w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center border-2 border-[#3198F5] text-[#3198F5] transition-transform duration-1000 ease-linear";
-        el.innerHTML =
-          '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H9.3a2 2 0 0 0-1.6.8L5 11l-5.16.86a1 1 0 0 0-.84.99V16h3m10 0a2 2 0 1 1-4 0m4 0a2 2 0 1 0-4 0m-10 0a2 2 0 1 1-4 0m4 0a2 2 0 1 0-4 0"/></svg>';
-
->>>>>>> b13b1481834fa77e72c1b66a26bcccd949a1ef70
         const marker = new maplibregl.Marker({ element: el })
           .setLngLat(d.coords)
           .addTo(mapRef.current);
@@ -289,14 +272,8 @@ export function PassengerMap() {
     setIsArming(true);
     try {
       const data = await armHotspot(selectedSpot.name, selectedSpot.coords);
-<<<<<<< HEAD
       const newHotspotId = data.data?.hotspotId || data.hotspotId || data.data?.hotspot?.id;
       setHotspotId(newHotspotId);
-=======
-      setHotspotId(
-        data.data?.hotspotId || data.hotspotId || data.data?.hotspot?.id,
-      );
->>>>>>> b13b1481834fa77e72c1b66a26bcccd949a1ef70
       setIsArmed(true);
       setTimeLeft(300);
       
