@@ -1,4 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import { Toaster } from "sonner";
 import { Splash } from "./pages/Splash";
 import { Welcome } from "./pages/Welcome";
@@ -13,6 +18,7 @@ import { DriverSignIn } from "./pages/DriverSignIn";
 import { DriverSignUp } from "./pages/DriverSignUp";
 import { DriverPINEntry } from "./pages/DriverPINEntry";
 import { DriverMap } from "./pages/DriverMap";
+import { PassengerProfile } from "./pages/PassengerProfile";
 
 function App() {
   return (
@@ -23,13 +29,14 @@ function App() {
           <Route path="/" element={<Navigate to="/splash" />} />
           <Route path="/splash" element={<Splash />} />
           <Route path="/welcome" element={<Welcome />} />
-          
+
           {/* Passenger Routes */}
           <Route path="/passenger/login" element={<PassengerLogin />} />
           <Route path="/passenger/signup" element={<PassengerSignUp />} />
           <Route path="/verify-phone" element={<OTPVerify />} />
           <Route path="/location-permission" element={<TurnOnLocation />} />
           <Route path="/passenger/map" element={<PassengerMap />} />
+          <Route path="/passenger/profile" element={<PassengerProfile />} />
           <Route path="/forgot-password" element={<ForgotPasswordRequest />} />
           <Route path="/reset-password" element={<ForgotPasswordConfirm />} />
 
