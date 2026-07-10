@@ -17,6 +17,10 @@ async function requireAuth(req, res, next) {
     return sendError(res, 401, "Invalid or expired token.");
   }
 
+  if (!payload) {
+    return sendError(res, 401, "Invalid or expired token.");
+  }
+
   try {
     const userResult = await User.findPublicById(payload.sub);
 
