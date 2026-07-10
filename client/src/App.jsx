@@ -33,6 +33,7 @@ function App() {
             <Route path="/welcome" element={<Welcome />} />
             
             {/* Passenger Routes */}
+            <Route path="/login" element={<PassengerLogin />} />
             <Route path="/passenger/login" element={<PassengerLogin />} />
             <Route path="/passenger/signup" element={<PassengerSignUp />} />
             <Route path="/verify-phone" element={<OTPVerify />} />

@@ -1,5 +1,26 @@
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+function redirectOnExpiredToken(res, error) {
+  const message = error?.message || error?.error;
+
+  if (res.status === 401 && message === "Invalid or expired token.") {
+    localStorage.removeItem("token");
+    window.location.replace("/login");
+  }
+}
+
+function getAuthToken() {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    localStorage.removeItem("token");
+    window.location.replace("/login");
+    throw new Error("No authentication token found");
+  }
+
+  return token;
+}
+
 export async function registerPassenger(data) {
   const res = await fetch(`${API_BASE}/api/register`, {
     method: "POST",
@@ -40,27 +61,25 @@ export async function loginPassenger(phone, password) {
 }
 
 export async function fetchUserProfile() {
-  const token = localStorage.getItem("token");
-
-  if (!token) {
-    throw new Error("No authentication token found");
-  }
+  const token = getAuthToken();
 
   const res = await fetch(`${API_BASE}/api/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  const response = await res.json();
+  const response = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || err.message || "Failed to fetch user profile");
+    redirectOnExpiredToken(res, response);
+    throw new Error(
+      response.error || response.message || "Failed to fetch user profile",
+    );
   }
 
   return response?.data?.user ?? null;
 }
 
 export async function updateUserProfile(data) {
-  const token = localStorage.getItem("token");
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE}/api/me`, {
     method: "PUT",
     headers: {
@@ -71,6 +90,7 @@ export async function updateUserProfile(data) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    redirectOnExpiredToken(res, err);
     throw new Error(
       err.error || err.message || "Failed to update user profile",
     );
@@ -131,7 +151,7 @@ export async function confirmPasswordReset(phone, code, password) {
 }
 
 export async function updateLocationPreference(allowLocation, coordinates) {
-  const token = localStorage.getItem("token");
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE}/api/user/location-preference`, {
     method: "POST",
     headers: {
@@ -142,6 +162,7 @@ export async function updateLocationPreference(allowLocation, coordinates) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    redirectOnExpiredToken(res, err);
     const detail = err.errors
       ? Array.isArray(err.errors)
         ? err.errors.join(", ")
@@ -158,7 +179,7 @@ export async function updateLocationPreference(allowLocation, coordinates) {
 }
 
 export async function armHotspot(placeName, coordinates) {
-  const token = localStorage.getItem("token");
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE}/api/hotspot/arm`, {
     method: "POST",
     headers: {
@@ -169,6 +190,7 @@ export async function armHotspot(placeName, coordinates) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    redirectOnExpiredToken(res, err);
     const detail = err.errors
       ? Array.isArray(err.errors)
         ? err.errors.join(", ")
@@ -182,7 +204,7 @@ export async function armHotspot(placeName, coordinates) {
 }
 
 export async function disarmHotspot(hotspotId) {
-  const token = localStorage.getItem("token");
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE}/api/hotspot/disarm`, {
     method: "POST",
     headers: {
@@ -193,6 +215,7 @@ export async function disarmHotspot(hotspotId) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    redirectOnExpiredToken(res, err);
     const detail = err.errors
       ? Array.isArray(err.errors)
         ? err.errors.join(", ")
@@ -211,7 +234,7 @@ export async function updateDriverVisibility(
   longitude,
   heading,
 ) {
-  const token = localStorage.getItem("token");
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE}/api/location/visibility`, {
     method: "PUT",
     headers: {
@@ -222,6 +245,7 @@ export async function updateDriverVisibility(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    redirectOnExpiredToken(res, err);
     const detail = err.errors
       ? Array.isArray(err.errors)
         ? err.errors.join(", ")
