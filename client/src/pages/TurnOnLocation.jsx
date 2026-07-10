@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "../components/Button";
 import { MapPin } from "lucide-react";
 import { updateLocationPreference } from "../services/api";
+import { toast } from "sonner";
 
 export function TurnOnLocation() {
   const navigate = useNavigate();
@@ -15,25 +16,41 @@ export function TurnOnLocation() {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           try {
-            await updateLocationPreference(true, [pos.coords.longitude, pos.coords.latitude]);
-          } catch (e) { console.error(e); }
-          navigate(targetRoute, { state: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
+            const response = await updateLocationPreference(true, [pos.coords.longitude, pos.coords.latitude]);
+            toast.success(response.message);
+            navigate(targetRoute, { state: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
+          } catch (error) {
+            toast.error(error.message);
+          }
         },
         async () => {
-          try { await updateLocationPreference(false); } catch (e) { console.error(e); }
-          navigate(targetRoute);
+          try {
+            const response = await updateLocationPreference(false);
+            toast.info(response.message);
+            navigate(targetRoute);
+          } catch (error) {
+            toast.error(error.message);
+          }
         }
       );
     } else {
-      updateLocationPreference(false).catch(console.error).finally(() => {
-        navigate(targetRoute);
-      });
+      updateLocationPreference(false)
+        .then((response) => {
+          toast.info(response.message);
+          navigate(targetRoute);
+        })
+        .catch((error) => toast.error(error.message));
     }
   };
 
   const handleNotNow = async () => {
-    try { await updateLocationPreference(false); } catch (e) { console.error(e); }
-    navigate(targetRoute);
+    try {
+      const response = await updateLocationPreference(false);
+      toast.info(response.message);
+      navigate(targetRoute);
+    } catch (error) {
+      toast.error(error.message);
+    }
   };
 
   return (

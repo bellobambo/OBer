@@ -112,8 +112,8 @@ export function PassengerProfile() {
   const handleSubmit = async () => {
     setIsSaving(true);
     try {
-      await updateUserProfile(formData);
-      toast.success("Profile updated successfully!");
+      const response = await updateUserProfile(formData);
+      toast.success(response.message);
       await fetchProfile(); // Refresh the profile data after update
       setIsEditing(false);
     } catch (error) {
@@ -121,6 +121,15 @@ export function PassengerProfile() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("passenger_isArmed");
+    localStorage.removeItem("passenger_hotspotId");
+    localStorage.removeItem("passenger_selectedSpot");
+    localStorage.removeItem("passenger_hotspotExpiresAt");
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -267,14 +276,18 @@ export function PassengerProfile() {
                     />
                   </div>
                 </div>
-                <div className="flex items-center space-x-5 rounded-2xl bg-white p-2">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex w-full items-center space-x-5 rounded-2xl bg-white p-2 text-left"
+                >
                   <div className="rounded-2xl bg-red-400/50 p-2.5 text-red-900">
                     <LogOut strokeWidth={1.5} />
                   </div>
                   <div className="flex-1 text-base tall-screen:text-xl font-semibold">
                     Log Out
                   </div>
-                </div>
+                </button>
               </div>
             </div>
           ) : (

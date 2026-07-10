@@ -19,7 +19,7 @@ export function PassengerLogin() {
     try {
       const data = await loginPassenger(phone, password);
       console.log("Login response:", data);
-      toast.success("Logged in successfully!");
+      toast.success(data.message);
       const token = data.data?.token || data.token;
       if (token) localStorage.setItem("token", token);
       navigate("/passenger/map"); // Go to the passenger map dashboard

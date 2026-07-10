@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useRef } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
 const SocketContext = createContext(null);
@@ -12,7 +12,7 @@ export function SocketProvider({ children }) {
   const [isConnected, setIsConnected] = useState(false);
   // Optional flag if we want a global demo mode
   const [isDemoMode, setIsDemoMode] = useState(() => {
-    return localStorage.getItem("ober_demo_mode") !== "false";
+    return localStorage.getItem("ober_demo_mode") === "true";
   });
 
   // Persist demo mode
@@ -49,6 +49,14 @@ export function SocketProvider({ children }) {
     newSocket.on("disconnect", () => {
       setIsConnected(false);
       console.log("Socket disconnected");
+    });
+
+    newSocket.on("connect_error", (error) => {
+      setIsConnected(false);
+      if (error.message === "Authentication required.") {
+        localStorage.removeItem("token");
+        window.location.replace("/login");
+      }
     });
 
     setSocket(newSocket);

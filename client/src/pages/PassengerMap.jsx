@@ -5,7 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Car, History, Wallet, User, Search, X, MapPin, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { useDummyDrivers } from "../hooks/useDummyDrivers";
-import { armHotspot, disarmHotspot } from "../services/api";
+import { armHotspot, disarmHotspot, getNearbyDrivers } from "../services/api";
 import { useSocket } from "../contexts/SocketContext";
 
 const OAU_BOUNDS = [
@@ -57,6 +57,25 @@ export function PassengerMap() {
   const { socket, isDemoMode, setIsDemoMode } = useSocket();
   const dummyDrivers = useDummyDrivers(selectedSpot?.coords, !!selectedSpot);
   const [liveDrivers, setLiveDrivers] = useState({});
+
+  useEffect(() => {
+    if (isDemoMode || !selectedSpot?.coords) return;
+    const [longitude, latitude] = selectedSpot.coords;
+    getNearbyDrivers(latitude, longitude)
+      .then((response) => {
+        const drivers = {};
+        (response.data?.drivers || []).forEach((driver) => {
+          const id = driver.driver_id ?? driver.driverId;
+          drivers[id] = {
+            id,
+            coords: [Number(driver.longitude), Number(driver.latitude)],
+            heading: driver.heading,
+          };
+        });
+        setLiveDrivers(drivers);
+      })
+      .catch((error) => toast.error(error.message));
+  }, [isDemoMode, selectedSpot]);
 
   useEffect(() => {
     if (!socket || isDemoMode) return;
@@ -282,7 +301,7 @@ export function PassengerMap() {
       localStorage.setItem("passenger_selectedSpot", JSON.stringify(selectedSpot));
       localStorage.setItem("passenger_hotspotExpiresAt", Date.now() + 300 * 1000);
 
-      toast.success("Hotspot armed successfully!");
+      toast.success(data.message);
     } catch (e) {
       toast.error(e.message || "Failed to arm hotspot");
     } finally {
@@ -293,9 +312,11 @@ export function PassengerMap() {
   const handleCancelArm = async () => {
     if (hotspotId) {
       try {
-        await disarmHotspot(hotspotId);
+        const response = await disarmHotspot(hotspotId);
+        toast.success(response.message);
       } catch (e) {
-        console.error("Disarm error", e);
+        toast.error(e.message || "Unable to disarm hotspot");
+        return;
       }
     }
     setHotspotId(null);

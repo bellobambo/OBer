@@ -24,7 +24,7 @@ export function PassengerSignUp() {
       // The backend returns the OTP directly in development
       const otp = response.data?.verificationCode || response.verificationCode || "";
       
-      toast.success("Account created! Verification code sent.");
+      toast.success(response.message);
       navigate("/verify-phone", { state: { phone, autoFillOtp: otp } });
     } catch (error) {
       toast.error(error.message || "Failed to register");

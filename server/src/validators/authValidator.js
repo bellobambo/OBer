@@ -25,9 +25,9 @@ function validateRegistration(body) {
     errors.push("role must be either PASSENGER or DRIVER.");
   }
 
-  if (!data.email) {
+  if (data.role !== "DRIVER" && !data.email) {
     errors.push("email is required.");
-  } else if (!EMAIL_PATTERN.test(data.email)) {
+  } else if (data.email && !EMAIL_PATTERN.test(data.email)) {
     errors.push("email must be a valid email address.");
   }
 

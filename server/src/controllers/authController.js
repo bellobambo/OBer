@@ -7,7 +7,6 @@ const {
   createVerificationCode,
   getVerificationExpiry,
   hashPassword,
-  verifyAuthToken,
   verifyPassword,
 } = require("../utils/security");
 const {
@@ -87,6 +86,8 @@ async function verifyPhone(req, res) {
     }
 
     return sendSuccess(res, 200, "Phone number verified successfully.", {
+      tokenType: "Bearer",
+      token: createAuthToken(userResult.rows[0]),
       user: User.toResponse(userResult.rows[0]),
     });
   } catch (error) {
@@ -131,37 +132,32 @@ async function login(req, res) {
 }
 
 async function me(req, res) {
-  const authorization = req.get("authorization") || "";
-  const [scheme, token] = authorization.split(" ");
+  return sendSuccess(res, 200, "Authenticated user loaded successfully.", {
+    user: User.toResponse(req.user),
+  });
+}
 
-  if (scheme !== "Bearer" || !token) {
-    return sendError(res, 401, "Bearer token is required.");
-  }
+async function updateMe(req, res) {
+  const fullName = String(req.body.fullName ?? req.body.full_name ?? "").trim();
+  const email = String(req.body.email ?? "").trim().toLowerCase();
 
-  let payload;
-
-  try {
-    payload = verifyAuthToken(token);
-  } catch (_error) {
-    payload = null;
-  }
-
-  if (!payload) {
-    return sendError(res, 401, "Invalid or expired token.");
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return sendError(res, 400, "Validation failed.", "email must be a valid email address.");
   }
 
   try {
-    const userResult = await User.findPublicById(payload.sub);
-
-    if (userResult.rowCount === 0) {
-      return sendError(res, 401, "Invalid or expired token.");
-    }
-
-    return sendSuccess(res, 200, "Authenticated user loaded successfully.", {
-      user: User.toResponse(userResult.rows[0]),
+    const result = await User.updateProfile(req.user.id, {
+      fullName: fullName || null,
+      email: email || null,
+    });
+    return sendSuccess(res, 200, "Profile updated successfully.", {
+      user: User.toResponse(result.rows[0]),
     });
   } catch (error) {
-    return sendError(res, 500, "Unable to load authenticated user.", error.message);
+    if (error.code === "23505") {
+      return sendError(res, 409, "That email address is already in use.");
+    }
+    return sendError(res, 500, "Unable to update profile.", error.message);
   }
 }
 
@@ -255,6 +251,7 @@ async function resendVerificationCode(req, res) {
 module.exports = {
   login,
   me,
+  updateMe,
   register,
   requestPasswordReset,
   resendVerificationCode,

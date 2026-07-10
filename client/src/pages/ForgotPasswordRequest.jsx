@@ -20,7 +20,7 @@ export function ForgotPasswordRequest() {
       
       const resetCode = response.data?.resetCode || response.resetCode || "";
       
-      toast.success("Reset code sent to your phone");
+      toast.success(response.message);
       navigate("/reset-password", { state: { phone, autoFillCode: resetCode } });
     } catch (error) {
       toast.error(error.message || "Failed to request password reset");

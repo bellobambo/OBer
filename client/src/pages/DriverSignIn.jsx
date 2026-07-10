@@ -19,7 +19,7 @@ export function DriverSignIn() {
     setIsLoading(true);
     try {
       const data = await loginDriver(driverCode, pin);
-      toast.success("Driver signed in successfully");
+      toast.success(data.message);
       const token = data.data?.token || data.token;
       if (token) localStorage.setItem("token", token);
       navigate("/driver/map");

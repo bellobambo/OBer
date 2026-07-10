@@ -17,7 +17,7 @@ async function requireAuth(req, res, next) {
     return sendError(res, 401, "Invalid or expired token.");
   }
 
-  if (!payload) {
+  if (!payload?.sub) {
     return sendError(res, 401, "Invalid or expired token.");
   }
 

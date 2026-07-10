@@ -24,7 +24,7 @@ export function DriverSignUp() {
       
       const otp = response.data?.verificationCode || response.verificationCode || "";
       
-      toast.success("Driver account created! Please verify your phone.");
+      toast.success(response.message);
       navigate("/verify-phone", { state: { phone, autoFillOtp: otp } });
     } catch (error) {
       toast.error(error.message || "Failed to register driver");

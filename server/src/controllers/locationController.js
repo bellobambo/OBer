@@ -91,14 +91,20 @@ async function updateDriverVisibility(req, res) {
 }
 
 async function getNearbyDrivers(req, res) {
-  const { latitude, longitude, radius } = req.query;
+  const latitude = toNumber(req.query.latitude);
+  const longitude = toNumber(req.query.longitude);
+  const radius = req.query.radius === undefined ? 5 : toNumber(req.query.radius);
 
-  if (latitude === undefined || longitude === undefined) {
-    return sendError(res, 400, "Latitude and longitude are required.");
+  if (!isValidCoordinate(longitude, latitude)) {
+    return sendError(res, 400, "Valid latitude and longitude are required.");
+  }
+
+  if (radius === undefined || radius <= 0 || radius > 50) {
+    return sendError(res, 400, "radius must be greater than 0 and no more than 50 kilometres.");
   }
 
   try {
-    const result = await Location.getNearbyDrivers(latitude, longitude, radius || 5);
+    const result = await Location.getNearbyDrivers(latitude, longitude, radius);
     return sendSuccess(res, 200, "Nearby drivers retrieved successfully.", {
       drivers: result.rows,
     });
@@ -140,14 +146,20 @@ async function getUserLocation(req, res) {
 }
 
 async function getNearbyUsers(req, res) {
-  const { latitude, longitude, radius } = req.query;
+  const latitude = toNumber(req.query.latitude);
+  const longitude = toNumber(req.query.longitude);
+  const radius = req.query.radius === undefined ? 5 : toNumber(req.query.radius);
 
-  if (latitude === undefined || longitude === undefined) {
-    return sendError(res, 400, "Latitude and longitude are required.");
+  if (!isValidCoordinate(longitude, latitude)) {
+    return sendError(res, 400, "Valid latitude and longitude are required.");
+  }
+
+  if (radius === undefined || radius <= 0 || radius > 50) {
+    return sendError(res, 400, "radius must be greater than 0 and no more than 50 kilometres.");
   }
 
   try {
-    const result = await Location.getNearbyUsers(latitude, longitude, radius || 5);
+    const result = await Location.getNearbyUsers(latitude, longitude, radius);
     return sendSuccess(res, 200, "Nearby users retrieved successfully.", {
       users: result.rows,
     });

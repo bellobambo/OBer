@@ -6,12 +6,26 @@ async function updateLocationPreference(req, res) {
   const { allowLocation, coordinates } = req.body;
   const userId = req.user.id;
 
-  if (allowLocation === undefined) {
-    return sendError(res, 400, "allowLocation is required.");
+  if (typeof allowLocation !== "boolean") {
+    return sendError(res, 400, "allowLocation must be a boolean.");
+  }
+
+  if (allowLocation && coordinates !== undefined) {
+    const longitude = Number(coordinates?.[0]);
+    const latitude = Number(coordinates?.[1]);
+    if (
+      !Array.isArray(coordinates) ||
+      coordinates.length !== 2 ||
+      !Number.isFinite(longitude) ||
+      !Number.isFinite(latitude) ||
+      longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90
+    ) {
+      return sendError(res, 400, "coordinates must be valid [longitude, latitude] values.");
+    }
   }
 
   try {
-    const userResult = await User.updateLocationPreference(userId, Boolean(allowLocation));
+    const userResult = await User.updateLocationPreference(userId, allowLocation);
 
     if (allowLocation && Array.isArray(coordinates) && coordinates.length === 2) {
       const [longitude, latitude] = coordinates;

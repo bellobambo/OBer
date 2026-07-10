@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Users, MapPin, History, Wallet, User as UserIcon, Settings2 } from "lucide-react";
+import { MapPin, History, Wallet, User as UserIcon, Settings2 } from "lucide-react";
 import { toast } from "sonner";
-import { updateDriverVisibility } from "../services/api";
+import { getActiveHotspots, updateDriverVisibility } from "../services/api";
 import { useSocket } from "../contexts/SocketContext";
 
 const DUMMY_HOTSPOTS = [
@@ -24,6 +24,19 @@ export function DriverMap() {
   const [liveHotspots, setLiveHotspots] = useState({});
 
   const { socket, isDemoMode, setIsDemoMode } = useSocket();
+
+  useEffect(() => {
+    if (isDemoMode) return;
+    getActiveHotspots()
+      .then((response) => {
+        const hotspots = {};
+        (response.data?.hotspots || []).forEach((hotspot) => {
+          hotspots[hotspot.placeName] = hotspot;
+        });
+        setLiveHotspots(hotspots);
+      })
+      .catch((error) => toast.error(error.message));
+  }, [isDemoMode]);
 
   // Socket event listeners
   useEffect(() => {
@@ -134,10 +147,14 @@ export function DriverMap() {
               map.current.easeTo({ center: [longitude, latitude] });
             }
             
-            if (isDemoMode) {
-              updateDriverVisibility(true, latitude, longitude, heading || 0).catch(() => {});
-            } else if (socket) {
-              socket.emit("driver:visibility:update", { isVisible: true, latitude, longitude, heading: heading || 0 }, () => {});
+            if (!isDemoMode && socket) {
+              socket.emit(
+                "driver:location:update",
+                { latitude, longitude, heading: heading || 0 },
+                (response) => {
+                  if (response && !response.success) toast.error(response.message);
+                },
+              );
             }
           },
           (err) => {
@@ -157,20 +174,41 @@ export function DriverMap() {
   }, [isOnline, isDemoMode, socket]);
 
   const toggleStatus = async () => {
-    if (isOnline) {
-      setIsOnline(false);
-      localStorage.setItem("driver_isOnline", "false");
-      toast.info("You are now offline.");
-      
-      if (isDemoMode) {
-        await updateDriverVisibility(false, 0, 0, 0).catch(() => {}); 
-      } else if (socket) {
-        socket.emit("driver:visibility:update", { isVisible: false, latitude: 0, longitude: 0 }, () => {});
+    try {
+      if (isOnline) {
+        if (!isDemoMode) await updateDriverVisibility(false);
+        setIsOnline(false);
+        localStorage.setItem("driver_isOnline", "false");
+        toast.info("You are now offline.");
+        return;
       }
-    } else {
+
+      if (!isDemoMode) {
+        if (!("geolocation" in navigator)) {
+          throw new Error("Geolocation is not supported by your browser.");
+        }
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+          });
+        });
+        const { latitude, longitude, heading } = position.coords;
+        const response = await updateDriverVisibility(
+          true,
+          latitude,
+          longitude,
+          heading || 0,
+        );
+        toast.success(response.message);
+      } else {
+        toast.success("Demo driver is now online.");
+      }
+
       setIsOnline(true);
       localStorage.setItem("driver_isOnline", "true");
-      toast.success("You are now online and visible to passengers.");
+    } catch (error) {
+      toast.error(error.message || "Unable to update your availability.");
     }
   };
 

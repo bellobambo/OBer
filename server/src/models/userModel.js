@@ -19,7 +19,7 @@ async function create(client, user) {
     .insert({
       role: user.role,
       full_name: user.fullName || null,
-      email: user.email,
+      email: user.email || null,
       phone: user.phone,
       password_hash: user.passwordHash,
       phone_verified: Boolean(user.phoneVerified),
@@ -135,6 +135,19 @@ async function updateLocationPreference(userId, trackingEnabled) {
   return { rows: data || [], rowCount: data ? data.length : 0 };
 }
 
+async function updateProfile(userId, profile) {
+  const { data, error } = await supabase
+    .from('users')
+    .update({
+      full_name: profile.fullName,
+      email: profile.email,
+    })
+    .eq('id', userId)
+    .select('id, role, full_name, email, phone, phone_verified, location_tracking_enabled, created_at');
+  if (error) throw error;
+  return { rows: data || [], rowCount: data ? data.length : 0 };
+}
+
 async function updatePhoneVerificationCode(userId, code, expiresAt) {
   const { data, error } = await supabase
     .from('users')
@@ -155,6 +168,7 @@ module.exports = {
   setPasswordResetCode,
   toResponse,
   updateLocationPreference,
+  updateProfile,
   updatePassword,
   updatePhoneVerificationCode,
   verifyPhone,

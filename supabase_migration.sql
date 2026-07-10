@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   id BIGSERIAL PRIMARY KEY,
   role VARCHAR(20) NOT NULL DEFAULT 'PASSENGER' CHECK (role IN ('PASSENGER', 'DRIVER')),
   full_name VARCHAR(160),
-  email VARCHAR(160) NOT NULL UNIQUE,
+  email VARCHAR(160) UNIQUE,
   phone VARCHAR(40) NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
@@ -16,6 +16,9 @@ CREATE TABLE IF NOT EXISTS users (
   location_tracking_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Drivers may register without an email address.
+ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
 
 CREATE TABLE IF NOT EXISTS drivers (
   id BIGSERIAL PRIMARY KEY,

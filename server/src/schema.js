@@ -6,7 +6,7 @@ async function createTables() {
       id BIGSERIAL PRIMARY KEY,
       role VARCHAR(20) NOT NULL DEFAULT 'PASSENGER' CHECK (role IN ('PASSENGER', 'DRIVER')),
       full_name VARCHAR(160),
-      email VARCHAR(160) NOT NULL UNIQUE,
+      email VARCHAR(160) UNIQUE,
       phone VARCHAR(40) NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
@@ -23,6 +23,7 @@ async function createTables() {
     WHERE role NOT IN ('PASSENGER', 'DRIVER');
     ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('PASSENGER', 'DRIVER'));
     ALTER TABLE users ALTER COLUMN role SET DEFAULT 'PASSENGER';
+    ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN NOT NULL DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verification_code VARCHAR(6);
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verification_expires_at TIMESTAMPTZ;

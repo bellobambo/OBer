@@ -17,7 +17,8 @@ router.post("/api/register", AuthController.register);
 router.post("/api/register/verify-phone", AuthController.verifyPhone);
 router.post("/api/register/resend-verification", AuthController.resendVerificationCode);
 router.post("/api/login", AuthController.login);
-router.get("/api/me", AuthController.me);
+router.get("/api/me", requireAuth, AuthController.me);
+router.put("/api/me", requireAuth, AuthController.updateMe);
 router.post("/api/password-reset/request", AuthController.requestPasswordReset);
 router.post("/api/password-reset/confirm", AuthController.resetPassword);
 

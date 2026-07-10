@@ -27,8 +27,8 @@ export function ForgotPasswordConfirm() {
     
     setIsLoading(true);
     try {
-      await confirmPasswordReset(phone, code, newPassword);
-      toast.success("Password reset successful. You can now log in.");
+      const response = await confirmPasswordReset(phone, code, newPassword);
+      toast.success(response.message);
       navigate("/passenger/login");
     } catch (error) {
       toast.error(error.message || "Failed to reset password");

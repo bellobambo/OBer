@@ -4,7 +4,7 @@ import { PinInput } from "../components/PinInput";
 import { Button } from "../components/Button";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { verifyPhone } from "../services/api";
+import { resendVerificationCode, verifyPhone } from "../services/api";
 
 export function OTPVerify() {
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ export function OTPVerify() {
     setIsLoading(true);
     try {
       const data = await verifyPhone(phone, pin);
-      toast.success("Phone verified successfully!");
+      toast.success(data.message);
       const token = data.data?.token || data.token;
       const role = data.data?.user?.role || data.user?.role;
       if (token) localStorage.setItem("token", token);
@@ -39,11 +39,16 @@ export function OTPVerify() {
     }
   };
 
-  const handleResend = () => {
-    if (timeLeft === 0) {
-      // Logic for resending OTP would go here
-      toast.success("A new code has been sent!");
+  const handleResend = async () => {
+    if (timeLeft !== 0 || !phone) return;
+    try {
+      const response = await resendVerificationCode(phone);
+      const verificationCode = response.data?.verificationCode;
+      if (verificationCode) setPin(verificationCode);
+      toast.success(response.message);
       setTimeLeft(30);
+    } catch (error) {
+      toast.error(error.message);
     }
   };
 
