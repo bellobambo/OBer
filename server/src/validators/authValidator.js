@@ -78,6 +78,23 @@ function validateLogin(body) {
   return { data, errors };
 }
 
+function validateProfileUpdate(body) {
+  const data = {
+    fullName: getField(body, "fullName", "full_name", "name"),
+    email: getField(body, "email").toLowerCase(),
+  };
+  const errors = [];
+
+  if (!data.fullName) errors.push("fullName is required.");
+  if (!data.email) {
+    errors.push("email is required.");
+  } else if (!EMAIL_PATTERN.test(data.email)) {
+    errors.push("email must be a valid email address.");
+  }
+
+  return { data, errors };
+}
+
 function validatePasswordResetRequest(body) {
   const data = {
     login: getField(body, "phone", "email", "driver_id"),
@@ -128,6 +145,7 @@ module.exports = {
   validatePasswordReset,
   validatePasswordResetRequest,
   validatePhoneVerification,
+  validateProfileUpdate,
   validateRegistration,
   validateResendVerification,
 };

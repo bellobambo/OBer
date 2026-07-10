@@ -14,6 +14,7 @@ const {
   validatePasswordReset,
   validatePasswordResetRequest,
   validatePhoneVerification,
+  validateProfileUpdate,
   validateRegistration,
   validateResendVerification,
 } = require("../validators/authValidator");
@@ -138,18 +139,19 @@ async function me(req, res) {
 }
 
 async function updateMe(req, res) {
-  const fullName = String(req.body.fullName ?? req.body.full_name ?? "").trim();
-  const email = String(req.body.email ?? "").trim().toLowerCase();
+  const { data, errors } = validateProfileUpdate(req.body);
 
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return sendError(res, 400, "Validation failed.", "email must be a valid email address.");
+  if (errors.length > 0) {
+    return sendError(res, 400, "Validation failed.", errors);
   }
 
   try {
-    const result = await User.updateProfile(req.user.id, {
-      fullName: fullName || null,
-      email: email || null,
-    });
+    const result = await User.updateProfile(req.user.id, data);
+
+    if (result.rowCount === 0) {
+      return sendError(res, 404, "User not found.");
+    }
+
     return sendSuccess(res, 200, "Profile updated successfully.", {
       user: User.toResponse(result.rows[0]),
     });

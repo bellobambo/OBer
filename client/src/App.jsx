@@ -34,12 +34,14 @@ function App() {
             
             {/* Passenger Routes */}
             <Route path="/login" element={<PassengerLogin />} />
-            <Route path="/passenger/login" element={<PassengerLogin />} />
-            <Route path="/passenger/signup" element={<PassengerSignUp />} />
+            <Route path="/passenger">
+              <Route path="login" element={<PassengerLogin />} />
+              <Route path="signup" element={<PassengerSignUp />} />
+              <Route path="map" element={<PassengerMap />} />
+              <Route path="profile" element={<PassengerProfile />} />
+            </Route>
             <Route path="/verify-phone" element={<OTPVerify />} />
             <Route path="/location-permission" element={<TurnOnLocation />} />
-            <Route path="/passenger/map" element={<PassengerMap />} />
-            <Route path="/passenger/profile" element={<PassengerProfile />} />
             <Route path="/forgot-password" element={<ForgotPasswordRequest />} />
             <Route path="/reset-password" element={<ForgotPasswordConfirm />} />
 
