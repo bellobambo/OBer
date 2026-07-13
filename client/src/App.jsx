@@ -16,17 +16,20 @@ import { ForgotPasswordConfirm } from "./pages/ForgotPasswordConfirm";
 import { TurnOnLocation } from "./pages/TurnOnLocation";
 import { PassengerMap } from "./pages/PassengerMap";
 import { DriverSignIn } from "./pages/DriverSignIn";
-import { DriverSignUp } from "./pages/DriverSignUp";
+import { DriverProfile } from "./pages/DriverProfile";
 import { DriverPINEntry } from "./pages/DriverPINEntry";
 import { DriverMap } from "./pages/DriverMap";
 import { PassengerProfile } from "./pages/PassengerProfile";
+import { AdminLayout } from "./pages/admin/AdminLayout";
+import { AdminDashboard } from "./pages/admin/AdminDashboard";
+import { FleetManagement } from "./pages/admin/FleetManagement";
 
 function App() {
   return (
     <SocketProvider>
       <Toaster position="top-center" richColors />
       <Router>
-        <div className="font-body-md text-on-background h-dvh w-dvw overflow-hidden selection:bg-[#9fcaff] selection:text-[#001d36]">
+        <div className="font-body-md text-on-background h-dvh w-dvw selection:bg-[#9fcaff] selection:text-[#001d36]">
           <Routes>
             <Route path="/" element={<Navigate to="/splash" />} />
             <Route path="/splash" element={<Splash />} />
@@ -47,9 +50,16 @@ function App() {
 
             {/* Driver Routes */}
             <Route path="/driver/signin" element={<DriverSignIn />} />
-            <Route path="/driver/signup" element={<DriverSignUp />} />
+            <Route path="/driver/profile" element={<DriverProfile />} />
             <Route path="/driver/pin" element={<DriverPINEntry />} />
             <Route path="/driver/map" element={<DriverMap />} />
+
+            {/* Admin Routes */}
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="dashboard" />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="fleet" element={<FleetManagement />} />
+            </Route>
           </Routes>
         </div>
       </Router>

@@ -38,7 +38,7 @@ function getAuthToken() {
   return token;
 }
 
-async function apiRequest(path, options = {}) {
+export async function apiRequest(path, options = {}) {
   const { auth = false, fallback = "Request failed", headers, ...fetchOptions } = options;
   const requestHeaders = { ...headers };
 
@@ -95,13 +95,7 @@ export function registerPassenger(data) {
   });
 }
 
-export function registerDriver(data) {
-  return apiRequest("/api/register", {
-    method: "POST",
-    body: JSON.stringify({ role: "DRIVER", ...data }),
-    fallback: "Driver registration failed",
-  });
-}
+
 
 export async function loginPassenger(phone, password) {
   const response = await apiRequest("/api/login", {

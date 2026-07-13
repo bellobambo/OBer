@@ -22,6 +22,14 @@ export function DriverSignIn() {
       toast.success(data.message);
       const token = data.data?.token || data.token;
       if (token) localStorage.setItem("token", token);
+      
+      const user = data.data?.user || data.user || {};
+      
+      if (user.onboardingStatus === "SUSPENDED" || user.onboarding_status === "SUSPENDED") {
+        toast.error("Your account has been suspended. Please contact admin.");
+        return;
+      }
+      
       navigate("/driver/map");
     } catch (error) {
       toast.error(error.message || "Failed to sign in as driver");
@@ -72,12 +80,6 @@ export function DriverSignIn() {
         >
           {isLoading ? "Logging in..." : "Log in"}
         </Button>
-        <p className="text-center text-[14px] text-gray-500">
-          New driver?{" "}
-          <Link to="/driver/signup" className="text-[#3198F5] font-semibold hover:underline">
-            Complete onboarding here
-          </Link>
-        </p>
       </div>
     </div>
   );

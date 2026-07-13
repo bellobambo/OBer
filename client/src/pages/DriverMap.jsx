@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
-import { MapPin, History, Wallet, User as UserIcon, Settings2 } from "lucide-react";
+import { History, Wallet, User as UserIcon, Settings2 } from "lucide-react";
 import { toast } from "sonner";
+import { DriverBottomNav } from "../components/DriverBottomNav";
 import { getActiveHotspots, updateDriverVisibility } from "../services/api";
 import { useSocket } from "../contexts/SocketContext";
 
@@ -24,6 +25,7 @@ export function DriverMap() {
   const [liveHotspots, setLiveHotspots] = useState({});
 
   const { socket, isDemoMode, setIsDemoMode } = useSocket();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (isDemoMode) return;
@@ -232,7 +234,10 @@ export function DriverMap() {
             {isDemoMode ? "Demo Mode" : "Live Mode"}
           </button>
           
-          <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-gray-200">
+          <div 
+            onClick={() => navigate("/driver/profile")}
+            className="w-9 h-9 rounded-full overflow-hidden border-2 border-gray-200 cursor-pointer hover:border-[#3198F5] transition-colors"
+          >
             <img 
               alt="Profile" 
               className="w-full h-full object-cover" 
@@ -256,26 +261,7 @@ export function DriverMap() {
         </button>
       </div>
 
-      <nav className="absolute bottom-0 w-full z-40 flex justify-around items-center px-4 h-20 bg-white/90 backdrop-blur-xl border-t border-gray-200 shadow-[0_-4px_16px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]">
-        <a className="flex flex-col items-center justify-center text-[#3198F5] gap-1 cursor-pointer">
-          <div className="bg-[#3198F5]/10 px-6 py-1.5 rounded-full">
-            <MapPin className="w-6 h-6 fill-current" />
-          </div>
-          <span className="text-[11px] font-bold">Map</span>
-        </a>
-        <a className="flex flex-col items-center justify-center text-gray-500 hover:text-gray-900 gap-1 cursor-pointer transition-colors">
-          <History className="w-6 h-6" />
-          <span className="text-[11px] font-medium">Activity</span>
-        </a>
-        <a className="flex flex-col items-center justify-center text-gray-500 hover:text-gray-900 gap-1 cursor-pointer transition-colors">
-          <Wallet className="w-6 h-6" />
-          <span className="text-[11px] font-medium">Wallet</span>
-        </a>
-        <a className="flex flex-col items-center justify-center text-gray-500 hover:text-gray-900 gap-1 cursor-pointer transition-colors">
-          <UserIcon className="w-6 h-6" />
-          <span className="text-[11px] font-medium">Profile</span>
-        </a>
-      </nav>
+      <DriverBottomNav activePage="map" />
     </div>
   );
 }

@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Car, History, Wallet, User, Search, X, MapPin, Settings2 } from "lucide-react";
+import { Search, X, Settings2, Car, MapPin } from "lucide-react";
 import { toast } from "sonner";
+import { BottomNav } from "../components/BottomNav";
 import { useDummyDrivers } from "../hooks/useDummyDrivers";
 import { armHotspot, disarmHotspot, getNearbyDrivers } from "../services/api";
 import { useSocket } from "../contexts/SocketContext";
@@ -405,8 +406,10 @@ export function PassengerMap() {
             <Settings2 className="w-3.5 h-3.5" />
             {isDemoMode ? "Demo Mode" : "Live Mode"}
           </button>
-          
-          <div className="w-9 h-9 rounded-full overflow-hidden border border-[#c1c7d2]">
+          <div 
+            onClick={() => navigate("/passenger/profile")}
+            className="w-9 h-9 rounded-full overflow-hidden border border-[#c1c7d2] cursor-pointer hover:opacity-80 transition-opacity"
+          >
             <img alt="Profile" className="w-full h-full object-cover" src="https://ui-avatars.com/api/?name=User&background=3198F5&color=fff" />
           </div>
         </div>
@@ -567,57 +570,7 @@ export function PassengerMap() {
       </div>
 
       {/* Bottom Nav */}
-      <nav
-        className={`fixed bottom-0 w-full z-[25] flex justify-around rounded-t-2xl items-center px-4 h-[84px] bg-white/90 backdrop-blur-xl border-t border-[#c1c7d2]/30 transition-transform duration-300 ${isModalOpen ? "translate-y-full" : ""}`}
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-        onClick={handleClick}
-      >
-        <button
-          className={`flex flex-col items-center gap-1 ${activePage ? "text-[#3198F5]" : "text-[#56656e]"}`}
-          data-nav="map"
-        >
-          <div
-            className={`${activePage ? "bg-[#3198F5]/10 px-6 py-1.5 rounded-2xl" : ""}`}
-          >
-            <MapPin
-              className={`${activePage ? "w-5 h-5" : "w-6 h-6"}`}
-              strokeWidth={activePage ? 2.5 : 2}
-            />
-          </div>
-          <span
-            className={`text-[10px] tracking-wide ${activePage ? "font-bold" : ""} ${activePage ? "" : "mt-0.5"}`}
-          >
-            Map
-          </span>
-        </button>
-        <button
-          className="flex flex-col items-center text-[#56656e] hover:text-[#191c1e] transition-colors gap-1"
-          data-nav="activity"
-        >
-          <div>
-            <History className="w-6 h-6" strokeWidth={2} />
-          </div>
-          <span className="text-[10px] tracking-wide mt-0.5">Activity</span>
-        </button>
-        <button
-          className="flex flex-col items-center text-[#56656e] hover:text-[#191c1e] transition-colors gap-1"
-          data-nav="wallet"
-        >
-          <div>
-            <Wallet className="w-6 h-6" strokeWidth={2} />
-          </div>
-          <span className="text-[10px] tracking-wide mt-0.5">Wallet</span>
-        </button>
-        <button
-          className="flex flex-col items-center text-[#56656e] hover:text-[#191c1e] transition-colors gap-1"
-          data-nav="profile"
-        >
-          <div>
-            <User className="w-6 h-6" strokeWidth={2} />
-          </div>
-          <span className="text-[10px] tracking-wide mt-0.5">Profile</span>
-        </button>
-      </nav>
+      <BottomNav activePage="map" />
     </div>
   );
 }

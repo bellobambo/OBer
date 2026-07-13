@@ -46,8 +46,10 @@ async function listAdmin(client, options = {}) {
       license_number,
       onboarding_status,
       created_at,
-      users!inner(full_name, email, phone, phone_verified, role),
-      user_locations!left(is_visible)
+      users!inner(
+        full_name, email, phone, phone_verified, role,
+        user_locations!left(is_visible)
+      )
     `)
     .eq('users.role', 'DRIVER')
     .order('created_at', { ascending: false });
@@ -66,7 +68,7 @@ async function listAdmin(client, options = {}) {
     email: d.users?.email,
     phone: d.users?.phone,
     phone_verified: d.users?.phone_verified,
-    is_on_duty: d.user_locations && d.user_locations.length > 0 ? d.user_locations[0].is_visible : false
+    is_on_duty: d.users?.user_locations && d.users.user_locations.length > 0 ? d.users.user_locations[0].is_visible : false
   }));
 
   return { rows: flattened, rowCount: flattened.length };
@@ -79,8 +81,10 @@ async function getAdminStats(client) {
       id,
       onboarding_status,
       vehicle_type,
-      users!inner(role),
-      user_locations!left(is_visible)
+      users!inner(
+        role,
+        user_locations!left(is_visible)
+      )
     `)
     .eq('users.role', 'DRIVER');
     
@@ -94,7 +98,7 @@ async function getAdminStats(client) {
 
   for (const d of (data || [])) {
     total_drivers++;
-    if (d.user_locations && d.user_locations.length > 0 && d.user_locations[0].is_visible) drivers_on_duty++;
+    if (d.users?.user_locations && d.users.user_locations.length > 0 && d.users.user_locations[0].is_visible) drivers_on_duty++;
     if (d.onboarding_status === 'COMPLETE') ready_drivers++;
     if (d.vehicle_type === 'BUS') total_bus_drivers++;
     if (d.vehicle_type === 'TRICYCLE') total_tricycle_drivers++;
