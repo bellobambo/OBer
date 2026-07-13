@@ -16,7 +16,15 @@ headers {
 
 body:json {
   {
-    "phone": "08098765432",
-    "code": "123456"
+    "phone": "{{REGISTERED_PHONE}}",
+    "code": "{{VERIFICATION_CODE}}"
+  }
+}
+
+script:post-response {
+  const token = res.body?.token || res.body?.data?.token;
+
+  if (token) {
+    bru.setEnvVar("AUTH_TOKEN", token);
   }
 }

@@ -23,3 +23,16 @@ body:json {
     "password": "password123"
   }
 }
+
+script:post-response {
+  const phone = res.body?.data?.user?.phone;
+  const verificationCode = res.body?.data?.verificationCode;
+
+  if (phone) {
+    bru.setEnvVar("REGISTERED_PHONE", phone);
+  }
+
+  if (verificationCode) {
+    bru.setEnvVar("VERIFICATION_CODE", verificationCode);
+  }
+}
