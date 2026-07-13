@@ -49,7 +49,7 @@ async function register(req, res) {
         vehicleId: data.vehicleId,
         vehicleType: data.vehicleType,
         licenseNumber: data.licenseNumber,
-        onboardingStatus: "PENDING",
+        onboardingStatus: "ACTIVE",
       });
     }
 
@@ -118,6 +118,10 @@ async function login(req, res) {
 
     if (!user.phone_verified) {
       return sendError(res, 403, "Verify phone number before logging in.");
+    }
+
+    if (user.role === "DRIVER" && User.getOnboardingStatus(user) === "SUSPENDED") {
+      return sendError(res, 403, "Your driver account has been suspended. Please contact an administrator.");
     }
 
     delete user.password_hash;

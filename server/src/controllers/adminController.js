@@ -62,7 +62,8 @@ async function getDriverStats(_req, res) {
       stats: {
         totalDrivers: Number(stats.total_drivers || 0),
         driversOnDuty: Number(stats.drivers_on_duty || 0),
-        readyDrivers: Number(stats.ready_drivers || 0),
+        activeDrivers: Number(stats.active_drivers || 0),
+        suspendedDrivers: Number(stats.suspended_drivers || 0),
         totalBusDrivers: Number(stats.total_bus_drivers || 0),
         totalTricycleDrivers: Number(stats.total_tricycle_drivers || 0),
       },
@@ -132,9 +133,66 @@ async function onboardDriver(req, res) {
   }
 }
 
+function validateDriverId(driverId, res) {
+  if (!/^[1-9]\d*$/.test(driverId)) {
+    sendError(res, 400, "driverId must be a positive integer.");
+    return false;
+  }
+
+  return true;
+}
+
+async function persistDriverStatus(driverId, onboardingStatus, res, successMessage) {
+  const client = await pool.connect();
+
+  try {
+    const result = await Driver.updateStatus(client, driverId, onboardingStatus);
+
+    if (result.rowCount === 0) {
+      return sendError(res, 404, "Driver not found.");
+    }
+
+    return sendSuccess(res, 200, successMessage, {
+      driver: Driver.toAdminResponse(result.rows[0]),
+    });
+  } catch (error) {
+    return sendError(res, 500, "Unable to update driver status.", error.message);
+  } finally {
+    client.release();
+  }
+}
+
+async function suspendDriver(req, res) {
+  const { driverId } = req.params;
+
+  if (!validateDriverId(driverId, res)) return;
+
+  return persistDriverStatus(
+    driverId,
+    "SUSPENDED",
+    res,
+    "Driver suspended successfully."
+  );
+}
+
+async function reactivateDriver(req, res) {
+  const { driverId } = req.params;
+
+  if (!validateDriverId(driverId, res)) return;
+
+  return persistDriverStatus(
+    driverId,
+    "ACTIVE",
+    res,
+    "Driver reactivated successfully."
+  );
+}
+
 module.exports = {
   getDriverStats,
   listDrivers,
   me,
   onboardDriver,
+  reactivateDriver,
+  suspendDriver,
 };

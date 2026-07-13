@@ -28,6 +28,13 @@ async function requireAuth(req, res, next) {
       return sendError(res, 401, "Invalid or expired token.");
     }
 
+    if (
+      userResult.rows[0].role === "DRIVER" &&
+      User.getOnboardingStatus(userResult.rows[0]) === "SUSPENDED"
+    ) {
+      return sendError(res, 403, "Your driver account has been suspended. Please contact an administrator.");
+    }
+
     req.user = userResult.rows[0];
     next();
   } catch (error) {

@@ -9,7 +9,7 @@ async function create(client, driver) {
       vehicle_id: driver.vehicleId || null,
       vehicle_type: driver.vehicleType || null,
       license_number: driver.licenseNumber || null,
-      onboarding_status: driver.onboardingStatus || "PENDING"
+      onboarding_status: driver.onboardingStatus || "ACTIVE"
     })
     .select('id, user_id, driver_code, vehicle_id, vehicle_type, license_number, onboarding_status, created_at');
   if (error) throw error;
@@ -92,19 +92,31 @@ async function getAdminStats(client) {
 
   let total_drivers = 0;
   let drivers_on_duty = 0;
-  let ready_drivers = 0;
+  let active_drivers = 0;
+  let suspended_drivers = 0;
   let total_bus_drivers = 0;
   let total_tricycle_drivers = 0;
 
   for (const d of (data || [])) {
     total_drivers++;
     if (d.users?.user_locations && d.users.user_locations.length > 0 && d.users.user_locations[0].is_visible) drivers_on_duty++;
-    if (d.onboarding_status === 'COMPLETE') ready_drivers++;
+    if (d.onboarding_status === 'ACTIVE') active_drivers++;
+    if (d.onboarding_status === 'SUSPENDED') suspended_drivers++;
     if (d.vehicle_type === 'BUS') total_bus_drivers++;
     if (d.vehicle_type === 'TRICYCLE') total_tricycle_drivers++;
   }
 
-  return { rows: [{ total_drivers, drivers_on_duty, ready_drivers, total_bus_drivers, total_tricycle_drivers }], rowCount: 1 };
+  return {
+    rows: [{
+      total_drivers,
+      drivers_on_duty,
+      active_drivers,
+      suspended_drivers,
+      total_bus_drivers,
+      total_tricycle_drivers,
+    }],
+    rowCount: 1,
+  };
 }
 
 async function findByCode(client, driverCode) {
@@ -117,10 +129,32 @@ async function findByCode(client, driverCode) {
   return { rows: data || [], rowCount: data ? data.length : 0 };
 }
 
+async function updateStatus(client, driverId, onboardingStatus) {
+  const { data, error } = await supabase
+    .from('drivers')
+    .update({ onboarding_status: onboardingStatus })
+    .eq('id', driverId)
+    .select('id, user_id, driver_code, vehicle_id, vehicle_type, license_number, onboarding_status, created_at');
+
+  if (error) throw error;
+
+  if (onboardingStatus === 'SUSPENDED' && data?.[0]?.user_id) {
+    const { error: visibilityError } = await supabase
+      .from('user_locations')
+      .update({ is_visible: false })
+      .eq('user_id', data[0].user_id);
+
+    if (visibilityError) throw visibilityError;
+  }
+
+  return { rows: data || [], rowCount: data ? data.length : 0 };
+}
+
 module.exports = {
   create,
   findByCode,
   getAdminStats,
   listAdmin,
   toAdminResponse,
+  updateStatus,
 };

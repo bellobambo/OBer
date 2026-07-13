@@ -1,6 +1,16 @@
 const supabase = require("../db");
 
+function getDriverRecord(user) {
+  return Array.isArray(user.drivers) ? user.drivers[0] : user.drivers;
+}
+
+function getOnboardingStatus(user) {
+  return getDriverRecord(user)?.onboarding_status || null;
+}
+
 function toResponse(user) {
+  const driver = getDriverRecord(user);
+
   return {
     id: user.id,
     role: user.role,
@@ -10,6 +20,13 @@ function toResponse(user) {
     phoneVerified: user.phone_verified,
     locationTrackingEnabled: user.location_tracking_enabled,
     createdAt: user.created_at,
+    ...(user.role === "DRIVER" && {
+      driverCode: driver?.driver_code || null,
+      vehicleType: driver?.vehicle_type || null,
+      vehicleId: driver?.vehicle_id || null,
+      licenseNumber: driver?.license_number || null,
+      accountStatus: driver?.onboarding_status || null,
+    }),
   };
 }
 
@@ -37,7 +54,7 @@ async function findByLogin(login) {
   
   let { data, error } = await supabase
     .from('users')
-    .select('id, role, email, phone, password_hash, full_name, phone_verified, password_reset_code, password_reset_expires_at, created_at, drivers!left(driver_code)')
+    .select('id, role, email, phone, password_hash, full_name, phone_verified, password_reset_code, password_reset_expires_at, created_at, drivers!left(driver_code, vehicle_type, vehicle_id, license_number, onboarding_status)')
     .or(`email.eq.${search},phone.eq.${login}`);
     
   if (error) throw error;
@@ -53,7 +70,7 @@ async function findByLogin(login) {
     if (driverData && driverData.length > 0) {
       const { data: uData, error: uErr } = await supabase
         .from('users')
-        .select('id, role, email, phone, password_hash, full_name, phone_verified, password_reset_code, password_reset_expires_at, created_at, drivers!left(driver_code)')
+        .select('id, role, email, phone, password_hash, full_name, phone_verified, password_reset_code, password_reset_expires_at, created_at, drivers!left(driver_code, vehicle_type, vehicle_id, license_number, onboarding_status)')
         .eq('id', driverData[0].user_id);
       if (uErr) throw uErr;
       data = uData;
@@ -66,7 +83,7 @@ async function findByLogin(login) {
 async function findPublicById(id) {
   const { data, error } = await supabase
     .from('users')
-    .select('id, role, full_name, email, phone, phone_verified, location_tracking_enabled, created_at')
+    .select('id, role, full_name, email, phone, phone_verified, location_tracking_enabled, created_at, drivers!left(driver_code, vehicle_type, vehicle_id, license_number, onboarding_status)')
     .eq('id', id)
     .limit(1);
   if (error) throw error;
@@ -165,6 +182,7 @@ module.exports = {
   create,
   findByLogin,
   findPublicById,
+  getOnboardingStatus,
   setPasswordResetCode,
   toResponse,
   updateLocationPreference,

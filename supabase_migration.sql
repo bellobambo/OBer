@@ -27,9 +27,20 @@ CREATE TABLE IF NOT EXISTS drivers (
   vehicle_id VARCHAR(100),
   vehicle_type VARCHAR(100) CHECK (vehicle_type IS NULL OR vehicle_type IN ('BUS', 'TRICYCLE')),
   license_number VARCHAR(100),
-  onboarding_status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (onboarding_status IN ('PENDING', 'COMPLETE', 'SUSPENDED')),
+  onboarding_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (onboarding_status IN ('ACTIVE', 'SUSPENDED')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Replace the former approval workflow with account availability states.
+-- Existing pending/complete drivers are active because neither state represented a suspension.
+ALTER TABLE drivers DROP CONSTRAINT IF EXISTS drivers_onboarding_status_check;
+UPDATE drivers
+SET onboarding_status = 'ACTIVE'
+WHERE onboarding_status IN ('PENDING', 'COMPLETE');
+ALTER TABLE drivers ALTER COLUMN onboarding_status SET DEFAULT 'ACTIVE';
+ALTER TABLE drivers
+  ADD CONSTRAINT drivers_onboarding_status_check
+  CHECK (onboarding_status IN ('ACTIVE', 'SUSPENDED'));
 
 CREATE TABLE IF NOT EXISTS user_locations (
   user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

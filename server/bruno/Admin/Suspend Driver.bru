@@ -1,0 +1,15 @@
+meta {
+  name: Suspend Driver
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/api/admin/drivers/1/suspend
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{AUTH_TOKEN}}
+}

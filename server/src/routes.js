@@ -27,6 +27,8 @@ router.get("/api/admin/me", requireAuth, requireAdmin, AdminController.me);
 router.get("/api/admin/drivers", requireAuth, requireAdmin, AdminController.listDrivers);
 router.get("/api/admin/drivers/stats", requireAuth, requireAdmin, AdminController.getDriverStats);
 router.post("/api/admin/drivers", requireAuth, requireAdmin, AdminController.onboardDriver);
+router.patch("/api/admin/drivers/:driverId/suspend", requireAuth, requireAdmin, AdminController.suspendDriver);
+router.patch("/api/admin/drivers/:driverId/reactivate", requireAuth, requireAdmin, AdminController.reactivateDriver);
 
 // Location routes
 router.put("/api/location", requireAuth, LocationController.updateLocation);

@@ -1,7 +1,7 @@
 const { getField } = require("../utils/request");
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ONBOARDING_STATUSES = new Set(["PENDING", "COMPLETE", "SUSPENDED"]);
+const ONBOARDING_STATUSES = new Set(["ACTIVE", "SUSPENDED"]);
 const VEHICLE_TYPES = new Set(["BUS", "TRICYCLE"]);
 
 function normalizeStatus(value) {
@@ -50,11 +50,11 @@ function validateDriverOnboarding(body) {
   }
 
   if (data.onboardingStatus && !ONBOARDING_STATUSES.has(data.onboardingStatus)) {
-    errors.push("onboardingStatus must be PENDING, COMPLETE, or SUSPENDED.");
+    errors.push("onboardingStatus must be ACTIVE or SUSPENDED.");
   }
 
   if (!data.onboardingStatus) {
-    data.onboardingStatus = data.vehicleId && data.vehicleType ? "COMPLETE" : "PENDING";
+    data.onboardingStatus = "ACTIVE";
   }
 
   return { data, errors };

@@ -39,7 +39,7 @@ async function createTables() {
       vehicle_id VARCHAR(100),
       vehicle_type VARCHAR(100),
       license_number VARCHAR(100),
-      onboarding_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+      onboarding_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
@@ -49,16 +49,20 @@ async function createTables() {
     ALTER TABLE drivers ADD COLUMN IF NOT EXISTS vehicle_id VARCHAR(100);
     ALTER TABLE drivers ADD COLUMN IF NOT EXISTS vehicle_type VARCHAR(100);
     ALTER TABLE drivers ADD COLUMN IF NOT EXISTS license_number VARCHAR(100);
-    ALTER TABLE drivers ADD COLUMN IF NOT EXISTS onboarding_status VARCHAR(20) NOT NULL DEFAULT 'PENDING';
+    ALTER TABLE drivers ADD COLUMN IF NOT EXISTS onboarding_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
     CREATE UNIQUE INDEX IF NOT EXISTS drivers_driver_code_unique_idx ON drivers(driver_code);
     ALTER TABLE drivers DROP CONSTRAINT IF EXISTS drivers_vehicle_type_check;
     ALTER TABLE drivers
       ADD CONSTRAINT drivers_vehicle_type_check
       CHECK (vehicle_type IS NULL OR vehicle_type IN ('BUS', 'TRICYCLE'));
     ALTER TABLE drivers DROP CONSTRAINT IF EXISTS drivers_onboarding_status_check;
+    UPDATE drivers
+    SET onboarding_status = 'ACTIVE'
+    WHERE onboarding_status IN ('PENDING', 'COMPLETE');
+    ALTER TABLE drivers ALTER COLUMN onboarding_status SET DEFAULT 'ACTIVE';
     ALTER TABLE drivers
       ADD CONSTRAINT drivers_onboarding_status_check
-      CHECK (onboarding_status IN ('PENDING', 'COMPLETE', 'SUSPENDED'));
+      CHECK (onboarding_status IN ('ACTIVE', 'SUSPENDED'));
 
     CREATE TABLE IF NOT EXISTS user_locations (
       user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

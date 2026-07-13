@@ -78,6 +78,12 @@ npm start
 
 Drivers can toggle whether they appear on the passenger map.
 
+### Driver profile responses
+
+Driver responses from login and `GET /api/me` include `driverCode`,
+`vehicleType`, `vehicleId`, `licenseNumber`, and `accountStatus`. These fields
+are omitted for non-driver users.
+
 ## Admin Driver Onboarding
 
 Admin endpoints are protected by the normal bearer token plus an email allowlist.
@@ -107,7 +113,8 @@ Returns the card counts for the admin dashboard:
     "stats": {
       "totalDrivers": 312,
       "driversOnDuty": 148,
-      "readyDrivers": 298,
+      "activeDrivers": 298,
+      "suspendedDrivers": 14,
       "totalBusDrivers": 82,
       "totalTricycleDrivers": 230
     }
@@ -117,7 +124,8 @@ Returns the card counts for the admin dashboard:
 
 - `totalDrivers`: all users with role `DRIVER`.
 - `driversOnDuty`: drivers whose visibility is currently enabled.
-- `readyDrivers`: drivers with `onboardingStatus` set to `COMPLETE`.
+- `activeDrivers`: drivers with `onboardingStatus` set to `ACTIVE`.
+- `suspendedDrivers`: drivers with `onboardingStatus` set to `SUSPENDED`.
 - `totalBusDrivers`: onboarded drivers assigned to a bus.
 - `totalTricycleDrivers`: onboarded drivers assigned to a tricycle.
 
@@ -148,6 +156,17 @@ stores the vehicle/document details used by the admin dashboard.
 ```
 
 `vehicleType` must be either `BUS` or `TRICYCLE`. `licenseNumber` is optional.
+`onboardingStatus` may be `ACTIVE` or `SUSPENDED` and defaults to `ACTIVE`.
+
+### `PATCH /api/admin/drivers/:driverId/suspend`
+
+Suspends a driver account without requiring a request body. Suspending a driver
+also disables their current on-duty visibility.
+
+### `PATCH /api/admin/drivers/:driverId/reactivate`
+
+Reactivates a suspended driver without requiring a request body. The returned
+driver has `onboardingStatus` set to `ACTIVE`.
 
 ### `PUT /api/location/visibility`
 
