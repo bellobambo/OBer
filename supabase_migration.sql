@@ -42,6 +42,15 @@ ALTER TABLE drivers
   ADD CONSTRAINT drivers_onboarding_status_check
   CHECK (onboarding_status IN ('ACTIVE', 'SUSPENDED'));
 
+-- Vehicle IDs and licence numbers identify one driver each. These functional
+-- indexes also prevent duplicates that differ only by letter casing.
+CREATE UNIQUE INDEX IF NOT EXISTS drivers_vehicle_id_unique_idx
+  ON drivers (UPPER(TRIM(vehicle_id)))
+  WHERE vehicle_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS drivers_license_number_unique_idx
+  ON drivers (UPPER(TRIM(license_number)))
+  WHERE license_number IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS user_locations (
   user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   latitude DECIMAL(10, 8) NOT NULL,

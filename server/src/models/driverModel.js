@@ -6,9 +6,9 @@ async function create(client, driver) {
     .insert({
       user_id: driver.userId,
       driver_code: driver.driverCode,
-      vehicle_id: driver.vehicleId || null,
+      vehicle_id: driver.vehicleId ? driver.vehicleId.toUpperCase() : null,
       vehicle_type: driver.vehicleType || null,
-      license_number: driver.licenseNumber || null,
+      license_number: driver.licenseNumber ? driver.licenseNumber.toUpperCase() : null,
       onboarding_status: driver.onboardingStatus || "ACTIVE"
     })
     .select('id, user_id, driver_code, vehicle_id, vehicle_type, license_number, onboarding_status, created_at');

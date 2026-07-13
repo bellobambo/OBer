@@ -2,6 +2,7 @@ const pool = require("../db");
 const Driver = require("../models/driverModel");
 const User = require("../models/userModel");
 const { sendError, sendSuccess } = require("../utils/response");
+const { getUniqueConflictMessage } = require("../utils/database");
 const {
   createAuthToken,
   createVerificationCode,
@@ -63,7 +64,7 @@ async function register(req, res) {
     await client.query("ROLLBACK");
 
     if (error.code === "23505") {
-      return sendError(res, 409, "A user with this email, phone number, or driver code already exists.");
+      return sendError(res, 409, getUniqueConflictMessage(error));
     }
 
     return sendError(res, 500, "Unable to register user.", error.message);

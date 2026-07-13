@@ -157,6 +157,7 @@ stores the vehicle/document details used by the admin dashboard.
 
 `vehicleType` must be either `BUS` or `TRICYCLE`. `licenseNumber` is optional.
 `onboardingStatus` may be `ACTIVE` or `SUSPENDED` and defaults to `ACTIVE`.
+Vehicle IDs and non-empty licence numbers must be unique, ignoring letter case.
 
 ### `PATCH /api/admin/drivers/:driverId/suspend`
 

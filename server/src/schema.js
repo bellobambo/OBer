@@ -51,6 +51,12 @@ async function createTables() {
     ALTER TABLE drivers ADD COLUMN IF NOT EXISTS license_number VARCHAR(100);
     ALTER TABLE drivers ADD COLUMN IF NOT EXISTS onboarding_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
     CREATE UNIQUE INDEX IF NOT EXISTS drivers_driver_code_unique_idx ON drivers(driver_code);
+    CREATE UNIQUE INDEX IF NOT EXISTS drivers_vehicle_id_unique_idx
+      ON drivers (UPPER(TRIM(vehicle_id)))
+      WHERE vehicle_id IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS drivers_license_number_unique_idx
+      ON drivers (UPPER(TRIM(license_number)))
+      WHERE license_number IS NOT NULL;
     ALTER TABLE drivers DROP CONSTRAINT IF EXISTS drivers_vehicle_type_check;
     ALTER TABLE drivers
       ADD CONSTRAINT drivers_vehicle_type_check
