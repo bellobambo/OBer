@@ -78,6 +78,9 @@ npm start
 
 Drivers can toggle whether they appear on the passenger map.
 
+Public registration creates passenger accounts only. Driver accounts must be
+created through the admin onboarding endpoint.
+
 ### Driver profile responses
 
 Driver responses from login and `GET /api/me` include `driverCode`,

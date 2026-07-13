@@ -1,5 +1,4 @@
 const pool = require("../db");
-const Driver = require("../models/driverModel");
 const User = require("../models/userModel");
 const { sendError, sendSuccess } = require("../utils/response");
 const { getUniqueConflictMessage } = require("../utils/database");
@@ -42,17 +41,6 @@ async function register(req, res) {
       phoneVerificationCode: verificationCode,
       phoneVerificationExpiresAt: getVerificationExpiry(),
     });
-
-    if (data.role === "DRIVER") {
-      await Driver.create(client, {
-        userId: userResult.rows[0].id,
-        driverCode: data.driverCode,
-        vehicleId: data.vehicleId,
-        vehicleType: data.vehicleType,
-        licenseNumber: data.licenseNumber,
-        onboardingStatus: "ACTIVE",
-      });
-    }
 
     await client.query("COMMIT");
 
