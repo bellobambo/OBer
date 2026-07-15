@@ -27,9 +27,10 @@ export function PassengerMap() {
   const selectedSpotMarkerRef = useRef(null);
   const driverMarkersRef = useRef(new Map());
   const location = useLocation();
+  const hasStoredHotspot = localStorage.getItem("passenger_isArmed") === "true";
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isArmed, setIsArmed] = useState(() => localStorage.getItem("passenger_isArmed") === "true");
+  const [isModalOpen, setIsModalOpen] = useState(hasStoredHotspot);
+  const [isArmed, setIsArmed] = useState(() => hasStoredHotspot);
   const [hotspotId, setHotspotId] = useState(() => localStorage.getItem("passenger_hotspotId") || null);
   const [isArming, setIsArming] = useState(false);
 
@@ -287,19 +288,27 @@ export function PassengerMap() {
     return () => clearInterval(timerId);
   }, [isArmed, timeLeft]);
 
-  const handleArm = async () => {
-    if (!selectedSpot) return;
+  useEffect(() => {
+    if (isArmed) {
+      setIsModalOpen(true);
+    }
+  }, [isArmed]);
+
+  const handleArm = async (spot = selectedSpot) => {
+    if (!spot) return;
     setIsArming(true);
     try {
-      const data = await armHotspot(selectedSpot.name, selectedSpot.coords);
+      setSelectedSpot(spot);
+      const data = await armHotspot(spot.name, spot.coords);
       const newHotspotId = data.data?.hotspotId || data.hotspotId || data.data?.hotspot?.id;
       setHotspotId(newHotspotId);
       setIsArmed(true);
+      setIsModalOpen(true);
       setTimeLeft(300);
       
       localStorage.setItem("passenger_isArmed", "true");
       if (newHotspotId) localStorage.setItem("passenger_hotspotId", newHotspotId);
-      localStorage.setItem("passenger_selectedSpot", JSON.stringify(selectedSpot));
+      localStorage.setItem("passenger_selectedSpot", JSON.stringify(spot));
       localStorage.setItem("passenger_hotspotExpiresAt", Date.now() + 300 * 1000);
 
       toast.success(data.message);
@@ -340,6 +349,9 @@ export function PassengerMap() {
     setSelectedSpot(result);
     setSearchQuery("");
     setSearchResults([]);
+    if (!isArmed) {
+      handleArm(result);
+    }
   };
 
   const handleKeyDown = e => {
@@ -423,12 +435,23 @@ export function PassengerMap() {
           onClick={() => setIsModalOpen(true)}
           className="flex flex-col items-center gap-3"
         >
-          <div className="w-[72px] h-[72px] text-white rounded-full flex items-center justify-center azure-glow">
-            <Car className="w-8 h-8" strokeWidth={2.5} />
-          </div>
+          {isArmed ? (
+            <div className="bg-white shadow-lg px-5 py-3 rounded-[22px] border border-[#c1c7d2] min-w-[168px] text-center">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#3198F5]">
+                Hotspot Active
+              </p>
+              <p className="text-2xl font-black tracking-wider text-[#191c1e] mt-1">
+                {formatTime(timeLeft)}
+              </p>
+            </div>
+          ) : (
+            <div className="w-[72px] h-[72px] text-white rounded-full flex items-center justify-center azure-glow">
+              <Car className="w-8 h-8" strokeWidth={2.5} />
+            </div>
+          )}
           <div className="bg-white shadow-lg px-6 py-2.5 rounded-full border border-[#c1c7d2]">
             <span className="text-[#3198F5] font-bold text-sm tracking-wide">
-              I Need a Ride
+              {isArmed ? "View Hotspot" : "I Need a Ride"}
             </span>
           </div>
         </button>
@@ -503,11 +526,14 @@ export function PassengerMap() {
                 {PREDEFINED_HOTSPOTS.map((spot, idx) => (
                   <button
                     key={idx}
-                    onClick={() =>
-                      setSelectedSpot(
-                        selectedSpot?.name === spot.name ? null : spot,
-                      )
-                    }
+                    onClick={() => {
+                      const nextSpot =
+                        selectedSpot?.name === spot.name ? null : spot;
+                      setSelectedSpot(nextSpot);
+                      if (nextSpot && !isArmed) {
+                        handleArm(nextSpot);
+                      }
+                    }}
                     className="flex flex-col items-center gap-3 min-w-[90px] group"
                   >
                     <div
