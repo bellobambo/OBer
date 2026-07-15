@@ -436,13 +436,28 @@ export function PassengerMap() {
           className="flex flex-col items-center gap-3"
         >
           {isArmed ? (
-            <div className="bg-white shadow-lg px-5 py-3 rounded-[22px] border border-[#c1c7d2] min-w-[168px] text-center">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#3198F5]">
-                Hotspot Active
-              </p>
-              <p className="text-2xl font-black tracking-wider text-[#191c1e] mt-1">
-                {formatTime(timeLeft)}
-              </p>
+            <div className="bg-white shadow-lg px-4 py-3 rounded-[22px] border border-[#c1c7d2] min-w-[190px]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-left">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#3198F5]">
+                    Hotspot Active
+                  </p>
+                  <p className="text-2xl font-black tracking-wider text-[#191c1e] mt-1">
+                    {formatTime(timeLeft)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleCancelArm();
+                  }}
+                  className="h-10 w-10 rounded-full bg-[#ba1a1a]/10 text-[#ba1a1a] flex items-center justify-center hover:bg-[#ba1a1a]/20 transition-colors"
+                  aria-label="Cancel hotspot"
+                >
+                  <X className="w-4 h-4" strokeWidth={3} />
+                </button>
+              </div>
             </div>
           ) : (
             <div className="w-[72px] h-[72px] text-white rounded-full flex items-center justify-center azure-glow">
