@@ -42,11 +42,14 @@ export function PassengerMap() {
   });
   const [timeLeft, setTimeLeft] = useState(() => {
     const expiresAt = localStorage.getItem("passenger_hotspotExpiresAt");
-    if (expiresAt) {
-      const remaining = Math.max(0, Math.floor((parseInt(expiresAt) - Date.now()) / 1000));
-      return remaining > 0 ? remaining : 300;
-    }
-    return 300;
+    if (!expiresAt) return 300;
+
+    const remaining = Math.max(
+      0,
+      Math.floor((Number.parseInt(expiresAt, 10) - Date.now()) / 1000)
+    );
+
+    return remaining;
   });
 
   // Clear expired hotspot on mount
@@ -326,7 +329,6 @@ export function PassengerMap() {
         toast.success(response.message);
       } catch (e) {
         toast.error(e.message || "Unable to disarm hotspot");
-        return;
       }
     }
     setHotspotId(null);
