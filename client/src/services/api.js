@@ -112,10 +112,10 @@ export async function loginPassenger(phone, password) {
   return response;
 }
 
-export async function loginDriver(driverId, password) {
+export async function loginDriver(phone, driverCode) {
   const response = await apiRequest("/api/login", {
     method: "POST",
-    body: JSON.stringify({ driver_id: driverId, password }),
+    body: JSON.stringify({ phone, driver_id: driverCode }),
     fallback: "Driver login failed",
   });
   if (response.data?.user?.role !== "DRIVER") {

@@ -93,7 +93,10 @@ async function login(req, res) {
   }
 
   try {
-    const userResult = await User.findByLogin(data.login);
+    const isDriverLogin = Boolean(data.driverId);
+    const userResult = isDriverLogin
+      ? await User.findDriverByPhoneAndCode(data.phone, data.driverId)
+      : await User.findByLogin(data.phone || data.email);
 
     if (userResult.rowCount === 0) {
       return sendError(res, 401, "Invalid login credentials.");
@@ -101,8 +104,12 @@ async function login(req, res) {
 
     const user = userResult.rows[0];
 
-    if (!verifyPassword(data.password, user.password_hash)) {
+    if (!isDriverLogin && !verifyPassword(data.password, user.password_hash)) {
       return sendError(res, 401, "Invalid login credentials.");
+    }
+
+    if (isDriverLogin && user.role !== "DRIVER") {
+      return sendError(res, 403, "Please use the passenger login page for this account.");
     }
 
     if (!user.phone_verified) {

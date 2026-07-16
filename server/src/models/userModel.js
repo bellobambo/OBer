@@ -80,6 +80,20 @@ async function findByLogin(login) {
   return { rows: data || [], rowCount: data ? data.length : 0 };
 }
 
+async function findDriverByPhoneAndCode(phone, driverCode) {
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, role, email, phone, password_hash, full_name, phone_verified, password_reset_code, password_reset_expires_at, created_at, drivers!inner(driver_code, vehicle_type, vehicle_id, license_number, onboarding_status)")
+    .eq("role", "DRIVER")
+    .eq("phone", phone)
+    .eq("drivers.driver_code", driverCode)
+    .limit(1);
+
+  if (error) throw error;
+
+  return { rows: data || [], rowCount: data ? data.length : 0 };
+}
+
 async function findPublicById(id) {
   const { data, error } = await supabase
     .from('users')
@@ -180,6 +194,7 @@ async function updatePhoneVerificationCode(userId, code, expiresAt) {
 
 module.exports = {
   create,
+  findDriverByPhoneAndCode,
   findByLogin,
   findPublicById,
   getOnboardingStatus,

@@ -51,14 +51,20 @@ function validatePhoneVerification(body) {
 
 function validateLogin(body) {
   const data = {
-    login: getField(body, "phone", "email", "driver_id"),
+    phone: getField(body, "phone"),
+    email: getField(body, "email").toLowerCase(),
+    driverId: getField(body, "driver_id"),
     password: getField(body, "password"),
   };
 
   const errors = [];
 
-  if (!data.login) errors.push("phone, email, or driver_id is required.");
-  if (!data.password) errors.push("password is required.");
+  if (data.driverId) {
+    if (!data.phone) errors.push("phone is required for driver login.");
+  } else {
+    if (!data.phone && !data.email) errors.push("phone or email is required.");
+    if (!data.password) errors.push("password is required.");
+  }
 
   return { data, errors };
 }

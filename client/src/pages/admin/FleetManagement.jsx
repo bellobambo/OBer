@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getFleet } from "../../services/adminApi";
+import { getFleet, reactivateDriver, suspendDriver } from "../../services/adminApi";
 import { Spinner } from "../../components/Spinner";
 import { toast } from "sonner";
 import { Search, Plus, UserPlus } from "lucide-react";
@@ -12,6 +12,7 @@ export function FleetManagement() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [updatingDriverId, setUpdatingDriverId] = useState(null);
 
   const fetchDrivers = () => {
     setIsLoading(true);
@@ -37,6 +38,24 @@ export function FleetManagement() {
     }, 500);
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery, page]);
+
+  const handleDriverStatusChange = async (driverId, action) => {
+    setUpdatingDriverId(driverId);
+    try {
+      if (action === "suspend") {
+        await suspendDriver(driverId);
+        toast.success("Driver suspended successfully.");
+      } else {
+        await reactivateDriver(driverId);
+        toast.success("Driver reactivated successfully.");
+      }
+      fetchDrivers();
+    } catch (error) {
+      toast.error(error.message || "Unable to update driver status");
+    } finally {
+      setUpdatingDriverId(null);
+    }
+  };
 
   const StatusBadge = ({ status }) => {
     // Standardize status text from backend to frontend
@@ -90,42 +109,69 @@ export function FleetManagement() {
                 <th className="px-6 py-4">Driver Code</th>
                 <th className="px-6 py-4">Vehicle Info</th>
                 <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan="4" className="px-6 py-12 text-center">
+                  <td colSpan="5" className="px-6 py-12 text-center">
                     <Spinner size="md" color="blue" />
                   </td>
                 </tr>
               ) : drivers.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="px-6 py-12 text-center text-gray-500 font-medium">
+                  <td colSpan="5" className="px-6 py-12 text-center text-gray-500 font-medium">
                     No drivers found.
                   </td>
                 </tr>
               ) : (
-                drivers.map((driver) => (
-                  <tr key={driver.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-gray-900">{driver.fullName || driver.full_name || "N/A"}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">{driver.email} • {driver.phone}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="font-mono bg-blue-50 text-[#3198F5] px-2 py-1 rounded-md text-xs font-bold border border-blue-100">
-                        {driver.driverCode || driver.driver_code}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-gray-800">{driver.vehicleType || driver.vehicle_type || "N/A"}</div>
-                      <div className="text-xs text-gray-500 mt-0.5 uppercase">ID: {driver.vehicleId || driver.vehicle_id || "N/A"}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={driver.onboardingStatus || driver.onboarding_status} />
-                    </td>
-                  </tr>
-                ))
+                drivers.map((driver) => {
+                  const status = driver.onboardingStatus || driver.onboarding_status;
+                  const isSuspended = status === "SUSPENDED";
+                  const isUpdating = updatingDriverId === driver.id;
+
+                  return (
+                    <tr key={driver.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-gray-900">{driver.fullName || driver.full_name || "N/A"}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{driver.email} • {driver.phone}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-mono bg-blue-50 text-[#3198F5] px-2 py-1 rounded-md text-xs font-bold border border-blue-100">
+                          {driver.driverCode || driver.driver_code}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-gray-800">{driver.vehicleType || driver.vehicle_type || "N/A"}</div>
+                        <div className="text-xs text-gray-500 mt-0.5 uppercase">ID: {driver.vehicleId || driver.vehicle_id || "N/A"}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <StatusBadge status={status} />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDriverStatusChange(driver.id, "suspend")}
+                            disabled={isSuspended || isUpdating}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            Suspend
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDriverStatusChange(driver.id, "reactivate")}
+                            disabled={!isSuspended || isUpdating}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            Reactivate
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

@@ -144,14 +144,14 @@ GET /api/admin/drivers?search=OAU-2207
 ### `POST /api/admin/drivers`
 
 Creates a driver account, generates a unique driver code such as `OAU-2207`, and
-stores the vehicle/document details used by the admin dashboard.
+stores the vehicle/document details used by the admin dashboard. Drivers then
+log in with their onboarded phone number plus the generated driver code.
 
 ```json
 {
   "fullName": "Adewale Kolawole",
   "email": "adewale@example.com",
   "phone": "08118228328",
-  "password": "12345678",
   "vehicleId": "OAU-TR-114",
   "vehicleType": "TRICYCLE",
   "licenseNumber": "LCV-2207"
@@ -161,6 +161,18 @@ stores the vehicle/document details used by the admin dashboard.
 `vehicleType` must be either `BUS` or `TRICYCLE`. `licenseNumber` is optional.
 `onboardingStatus` may be `ACTIVE` or `SUSPENDED` and defaults to `ACTIVE`.
 Vehicle IDs and non-empty licence numbers must be unique, ignoring letter case.
+
+### `POST /api/login` for drivers
+
+Driver login uses the phone number on the driver account together with the
+generated driver code:
+
+```json
+{
+  "phone": "08118228328",
+  "driver_id": "OAU-2207"
+}
+```
 
 ### `PATCH /api/admin/drivers/:driverId/suspend`
 

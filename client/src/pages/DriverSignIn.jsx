@@ -1,24 +1,24 @@
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ScreenHeader } from "../components/ScreenHeader";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { InfoAlert } from "../components/InfoAlert";
-import { ShieldCheck, CarFront, Lock } from "lucide-react";
+import { ShieldCheck, CarFront, Phone } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { loginDriver } from "../services/api";
 
 export function DriverSignIn() {
   const navigate = useNavigate();
+  const [phone, setPhone] = useState("");
   const [driverCode, setDriverCode] = useState("");
-  const [pin, setPin] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!driverCode || pin.length < 8) return;
+    if (!phone || phone.length < 10 || !driverCode) return;
     setIsLoading(true);
     try {
-      const data = await loginDriver(driverCode, pin);
+      const data = await loginDriver(phone, driverCode);
       toast.success(data.message);
       const token = data.data?.token || data.token;
       if (token) localStorage.setItem("token", token);
@@ -38,7 +38,7 @@ export function DriverSignIn() {
     }
   };
 
-  const isValid = driverCode.length > 0 && pin.length >= 8;
+  const isValid = phone.length >= 10 && driverCode.trim().length > 0;
 
   return (
     <div className="p-6 min-h-screen bg-white max-w-md mx-auto">
@@ -49,26 +49,25 @@ export function DriverSignIn() {
       
       <div className="space-y-6">
         <InfoAlert icon={ShieldCheck}>
-          Your OBer code was issued with your campus driving licence. No public sign-up.
+          Use the phone number linked to your driver account and the code issued during onboarding.
         </InfoAlert>
 
         <Input 
-          label="Driver code" 
-          placeholder="K-2207" 
-          icon={CarFront}
-          value={driverCode}
-          onChange={(e) => setDriverCode(e.target.value)}
+          label="Phone number"
+          placeholder="08012345678"
+          icon={Phone}
+          type="tel"
+          maxLength={11}
+          value={phone}
+          onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
         />
 
         <Input 
-          label="Password" 
-          placeholder="••••••••" 
-          type="password"
-          icon={Lock}
-          inputClassName="tracking-[0.2em]"
-          maxLength={8}
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
+          label="Driver code"
+          placeholder="OAU-2207"
+          icon={CarFront}
+          value={driverCode}
+          onChange={(e) => setDriverCode(e.target.value.toUpperCase())}
         />
       </div>
 

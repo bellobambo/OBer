@@ -58,3 +58,19 @@ export async function onboardDriver(driverData) {
     fallback: "Unable to onboard driver",
   });
 }
+
+export async function suspendDriver(driverId) {
+  return apiRequest(`/api/admin/drivers/${encodeURIComponent(driverId)}/suspend`, {
+    method: "PATCH",
+    auth: true,
+    fallback: "Unable to suspend driver",
+  });
+}
+
+export async function reactivateDriver(driverId) {
+  return apiRequest(`/api/admin/drivers/${encodeURIComponent(driverId)}/reactivate`, {
+    method: "PATCH",
+    auth: true,
+    fallback: "Unable to reactivate driver",
+  });
+}

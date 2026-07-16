@@ -16,7 +16,6 @@ function validateDriverOnboarding(body) {
     fullName: getField(body, "fullName", "full_name", "name"),
     email: getField(body, "email").toLowerCase(),
     phone: getField(body, "phone"),
-    password: getField(body, "password", "pin"),
     vehicleId: getField(body, "vehicleId", "vehicle_id"),
     vehicleType,
     licenseNumber: getField(body, "licenseNumber", "license_number", "licenceNumber", "licence_number"),
@@ -34,12 +33,6 @@ function validateDriverOnboarding(body) {
   }
 
   if (!data.phone) errors.push("phone is required.");
-
-  if (!data.password) {
-    errors.push("password is required.");
-  } else if (data.password.length < 8) {
-    errors.push("password must be at least 8 characters long.");
-  }
 
   if (!data.vehicleId) errors.push("vehicleId is required.");
 

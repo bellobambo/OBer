@@ -94,7 +94,8 @@ async function onboardDriver(req, res) {
       fullName: data.fullName,
       email: data.email,
       phone: data.phone,
-      passwordHash: hashPassword(data.password),
+      // Drivers authenticate with phone number + driver code, so keep an internal secret only.
+      passwordHash: hashPassword(crypto.randomBytes(24).toString("hex")),
       phoneVerified: true,
       phoneVerificationCode: null,
       phoneVerificationExpiresAt: null,

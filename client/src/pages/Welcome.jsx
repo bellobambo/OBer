@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/Button";
 import { User } from "lucide-react";
 
@@ -41,6 +41,25 @@ export function Welcome() {
               <User className="w-5 h-5" />
               <span>Register</span>
             </Button>
+
+            <Button
+              onClick={() => navigate("/passenger/login")}
+              className="flex items-center space-x-2 bg-white text-[#3198F5] border border-[#3198F5] hover:bg-[#F4F9FF]"
+            >
+              <User className="w-5 h-5" />
+              <span>Login</span>
+            </Button>
+
+            <p className="text-center text-sm text-gray-500">
+              Already onboarded as a driver?
+              {" "}
+              <Link
+                to="/driver/signin"
+                className="font-semibold text-[#3198F5] hover:underline"
+              >
+                I am a driver
+              </Link>
+            </p>
             
             <p className="text-center text-xs text-gray-400 mt-4">
               Zero commitment · No booking ever

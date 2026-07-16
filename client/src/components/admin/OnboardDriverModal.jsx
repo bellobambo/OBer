@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { onboardDriver } from "../../services/adminApi";
 import { toast } from "sonner";
-import { X, UserPlus, Car, Mail, Phone, Lock, Hash } from "lucide-react";
+import { X, UserPlus, Car, Mail, Phone, Hash } from "lucide-react";
 import { Spinner } from "../Spinner";
 import { Input } from "../Input";
 
@@ -10,7 +10,6 @@ export function OnboardDriverModal({ onClose, onSuccess }) {
     fullName: "",
     email: "",
     phone: "",
-    password: "",
     vehicleId: "",
     vehicleType: "BUS",
     licenseNumber: "",
@@ -93,27 +92,18 @@ export function OnboardDriverModal({ onClose, onSuccess }) {
                   onChange={handleChange}
                   required
                 />
-                <Input
-                  label="Phone Number"
-                  name="phone"
-                  type="tel"
-                  icon={Phone}
-                  placeholder="08012345678"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  required
-                />
-                <Input
-                  label="Temporary Password"
-                  name="password"
-                  type="text"
-                  icon={Lock}
-                  placeholder="Password (min 8 chars)"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  minLength={8}
-                />
+                <div className="sm:col-span-2">
+                  <Input
+                    label="Phone Number"
+                    name="phone"
+                    type="tel"
+                    icon={Phone}
+                    placeholder="08012345678"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
               </div>
             </div>
 
@@ -122,15 +112,15 @@ export function OnboardDriverModal({ onClose, onSuccess }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 
                 {/* Custom Select for Vehicle Type */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700 ml-1">Vehicle Type</label>
+                <div className="flex flex-col space-y-2">
+                  <label className="text-sm font-semibold text-gray-900">Vehicle Type</label>
                   <div className="relative">
-                    <Car className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Car className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <select
                       name="vehicleType"
                       value={formData.vehicleType}
                       onChange={handleChange}
-                      className="w-full pl-11 pr-4 py-3 bg-white border border-[#c1c7d2] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#3198F5]/50 focus:border-[#3198F5] transition-all text-sm font-bold text-[#191c1e] appearance-none"
+                      className="w-full bg-white border border-gray-200 rounded-[12px] py-4 pl-12 pr-4 text-gray-900 outline-none focus:border-[#3198F5] focus:ring-1 focus:ring-[#3198F5] transition-all appearance-none"
                     >
                       <option value="BUS">Bus</option>
                       <option value="TRICYCLE">Tricycle (Korope)</option>
@@ -147,27 +137,15 @@ export function OnboardDriverModal({ onClose, onSuccess }) {
                   onChange={handleChange}
                   required
                 />
-                <Input
-                  label="License Number"
-                  name="licenseNumber"
-                  icon={Hash}
-                  placeholder="ABC-123-XY"
-                  value={formData.licenseNumber}
-                  onChange={handleChange}
-                />
-
-                {/* Custom Select for Status */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700 ml-1">Account Status</label>
-                  <select
-                    name="onboardingStatus"
-                    value={formData.onboardingStatus}
+                <div className="sm:col-span-2">
+                  <Input
+                    label="License Number"
+                    name="licenseNumber"
+                    icon={Hash}
+                    placeholder="ABC-123-XY"
+                    value={formData.licenseNumber}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white border border-[#c1c7d2] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#3198F5]/50 focus:border-[#3198F5] transition-all text-sm font-bold text-[#191c1e]"
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="SUSPENDED">Suspended</option>
-                  </select>
+                  />
                 </div>
               </div>
             </div>
