@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/Button";
-import { User, Car } from "lucide-react";
+import { User } from "lucide-react";
 
 export function Welcome() {
   const navigate = useNavigate();
@@ -37,13 +37,9 @@ export function Welcome() {
         {/* Bottom Sheet */}
         <div className="mt-auto bg-white p-6 pt-10 z-20 rounded-t-[32px] shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
           <div className="space-y-4 pb-4">
-            <Button onClick={() => navigate("/passenger/login")} className="flex items-center space-x-2">
+            <Button onClick={() => navigate("/passenger/signup")} className="flex items-center space-x-2">
               <User className="w-5 h-5" />
-              <span>I'm a passenger</span>
-            </Button>
-            <Button variant="secondary" onClick={() => navigate("/driver/signin")} className="flex items-center space-x-2 text-gray-700 bg-gray-100 hover:bg-gray-200">
-              <Car className="w-5 h-5" />
-              <span>I'm a driver</span>
+              <span>Register</span>
             </Button>
             
             <p className="text-center text-xs text-gray-400 mt-4">
