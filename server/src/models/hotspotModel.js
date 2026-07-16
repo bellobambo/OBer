@@ -1,5 +1,22 @@
 const supabase = require("../db");
 
+function toRadians(value) {
+  return (value * Math.PI) / 180;
+}
+
+function calculateDistanceInKm(latitudeA, longitudeA, latitudeB, longitudeB) {
+  const earthRadiusInKm = 6371;
+  const deltaLatitude = toRadians(latitudeB - latitudeA);
+  const deltaLongitude = toRadians(longitudeB - longitudeA);
+  const a =
+    Math.sin(deltaLatitude / 2) ** 2 +
+    Math.cos(toRadians(latitudeA)) *
+      Math.cos(toRadians(latitudeB)) *
+      Math.sin(deltaLongitude / 2) ** 2;
+
+  return 2 * earthRadiusInKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 class Hotspot {
   static async arm(userId, placeName, longitude, latitude) {
     const { data: expiredData, error: err1 } = await supabase
@@ -55,13 +72,69 @@ class Hotspot {
   }
 
   static async getActiveGroups(latitude, longitude, radiusInKm) {
-    const { data, error } = await supabase.rpc('get_active_hotspot_groups', {
-      p_latitude: latitude,
-      p_longitude: longitude,
-      p_radius_in_km: radiusInKm
-    });
+    const { data, error } = await supabase
+      .from("hotspots")
+      .select("place_name, longitude, latitude")
+      .eq("status", "ACTIVE")
+      .gt("expires_at", new Date().toISOString());
+
     if (error) throw error;
-    return { rows: data || [], rowCount: data ? data.length : 0 };
+
+    const groupedHotspots = new Map();
+
+    for (const hotspot of data || []) {
+      const normalizedPlaceName = String(hotspot.place_name || "").trim();
+      const roundedLongitude = Number(Number(hotspot.longitude).toFixed(5));
+      const roundedLatitude = Number(Number(hotspot.latitude).toFixed(5));
+      const groupKey = `${normalizedPlaceName.toLowerCase()}|${roundedLongitude}|${roundedLatitude}`;
+
+      if (!groupedHotspots.has(groupKey)) {
+        groupedHotspots.set(groupKey, {
+          place_name: normalizedPlaceName,
+          longitude: roundedLongitude,
+          latitude: roundedLatitude,
+          passenger_count: 0,
+        });
+      }
+
+      groupedHotspots.get(groupKey).passenger_count += 1;
+    }
+
+    let rows = Array.from(groupedHotspots.values());
+
+    if (
+      Number.isFinite(latitude) &&
+      Number.isFinite(longitude) &&
+      Number.isFinite(radiusInKm)
+    ) {
+      rows = rows
+        .map((row) => ({
+          ...row,
+          distance: calculateDistanceInKm(
+            latitude,
+            longitude,
+            row.latitude,
+            row.longitude,
+          ),
+        }))
+        .filter((row) => row.distance <= radiusInKm)
+        .sort((a, b) => {
+          if (a.distance !== b.distance) return a.distance - b.distance;
+          if (b.passenger_count !== a.passenger_count) {
+            return b.passenger_count - a.passenger_count;
+          }
+          return a.place_name.localeCompare(b.place_name);
+        });
+    } else {
+      rows.sort((a, b) => {
+        if (b.passenger_count !== a.passenger_count) {
+          return b.passenger_count - a.passenger_count;
+        }
+        return a.place_name.localeCompare(b.place_name);
+      });
+    }
+
+    return { rows, rowCount: rows.length };
   }
 
   static async getActiveGroup(placeName, longitude, latitude) {
