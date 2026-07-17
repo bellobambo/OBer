@@ -35,43 +35,92 @@ function toAdminResponse(row) {
 }
 
 async function listAdmin(client, options = {}) {
-  let query = supabase
-    .from('drivers')
-    .select(`
-      id,
-      user_id,
-      driver_code,
-      vehicle_id,
-      vehicle_type,
-      license_number,
-      onboarding_status,
-      created_at,
-      users!inner(
-        full_name, email, phone, phone_verified, role,
-        user_locations!left(is_visible)
-      )
-    `)
-    .eq('users.role', 'DRIVER')
-    .order('created_at', { ascending: false });
+  const {
+    page = 1,
+    perPage = 10,
+    status = null,
+    search = null,
+    sort = "newest",
+  } = options;
 
-  if (options.search) {
-    const s = `%${options.search}%`;
-    query = query.or(`driver_code.ilike.${s},vehicle_id.ilike.${s},users.full_name.ilike.${s},users.email.ilike.${s},users.phone.ilike.${s}`);
+  const ascending = sort === "oldest";
+  const from = (page - 1) * perPage;
+  const to = from + perPage - 1;
+
+  // Shared select columns (used by both count and data queries)
+  const selectColumns = `
+    id,
+    user_id,
+    driver_code,
+    vehicle_id,
+    vehicle_type,
+    license_number,
+    onboarding_status,
+    created_at,
+    users!inner(
+      full_name, email, phone, phone_verified, role,
+      user_locations!left(is_visible)
+    )
+  `;
+
+  // --- Helper to apply shared filters to a query builder ---
+  function applyFilters(query) {
+    let q = query.eq('users.role', 'DRIVER');
+
+    if (status) {
+      q = q.eq('onboarding_status', status);
+    }
+
+    if (search) {
+      // Escape PostgREST-reserved characters (backslash, double-quote) and
+      // wrap values in double-quotes so commas, dots, parentheses etc. inside
+      // user input don't break the .or() filter string.
+      const escaped = search.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const s = `"%${escaped}%"`;
+      q = q.or(`driver_code.ilike.${s},vehicle_id.ilike.${s},users.full_name.ilike.${s},users.email.ilike.${s},users.phone.ilike.${s}`);
+    }
+
+    return q;
   }
 
-  const { data, error } = await query;
-  if (error) throw error;
+  // --- 1. Count query (no row data transferred) ---
+  let countQuery = supabase
+    .from('drivers')
+    .select(selectColumns, { count: 'exact', head: true });
+  countQuery = applyFilters(countQuery);
 
-  const flattened = (data || []).map(d => ({
+  const { count: totalCount, error: countError } = await countQuery;
+  if (countError) throw countError;
+
+  const safeTotal = totalCount || 0;
+  const totalPages = Math.ceil(safeTotal / perPage) || 1;
+
+  // --- 2. Data query (fetch only the requested page) ---
+  let dataQuery = supabase
+    .from('drivers')
+    .select(selectColumns)
+    .order('created_at', { ascending });
+  dataQuery = applyFilters(dataQuery);
+  dataQuery = dataQuery.range(from, to);
+
+  const { data, error: dataError } = await dataQuery;
+  if (dataError) throw dataError;
+
+  const flattened = (data || []).map(({ users, ...d }) => ({
     ...d,
-    full_name: d.users?.full_name,
-    email: d.users?.email,
-    phone: d.users?.phone,
-    phone_verified: d.users?.phone_verified,
-    is_on_duty: d.users?.user_locations && d.users.user_locations.length > 0 ? d.users.user_locations[0].is_visible : false
+    full_name: users?.full_name,
+    email: users?.email,
+    phone: users?.phone,
+    phone_verified: users?.phone_verified,
+    is_on_duty: users?.user_locations && users.user_locations.length > 0 ? users.user_locations[0].is_visible : false
   }));
 
-  return { rows: flattened, rowCount: flattened.length };
+  return {
+    rows: flattened,
+    totalCount: safeTotal,
+    totalPages,
+    currentPage: page,
+  };
 }
 
 async function getAdminStats(client) {

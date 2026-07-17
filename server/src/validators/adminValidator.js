@@ -60,6 +60,48 @@ function validateDriverOnboarding(body) {
   return { data, errors };
 }
 
+const SORT_VALUES = new Set(["newest", "oldest"]);
+
+function validateListDriversQuery(query) {
+  const errors = [];
+
+  // per_page: integer, default 10, clamped 1–100
+  let perPage = parseInt(query.per_page, 10);
+  if (Number.isNaN(perPage) || perPage < 1) {
+    perPage = 10;
+  } else if (perPage > 100) {
+    perPage = 100;
+  }
+
+  // page: integer, default 1, minimum 1
+  let page = parseInt(query.page, 10);
+  if (Number.isNaN(page) || page < 1) {
+    page = 1;
+  }
+
+  // status: must be ACTIVE or SUSPENDED if provided
+  let status = query.status ? query.status.toUpperCase().trim() : null;
+  if (status && !ONBOARDING_STATUSES.has(status)) {
+    errors.push("status must be ACTIVE or SUSPENDED.");
+    status = null;
+  }
+
+  // search: trimmed string or null
+  const search = query.search ? query.search.trim() : null;
+
+  // sort: "newest" (default) or "oldest"
+  let sort = query.sort ? query.sort.toLowerCase().trim() : "newest";
+  if (!SORT_VALUES.has(sort)) {
+    sort = "newest";
+  }
+
+  return {
+    data: { perPage, page, status, search, sort },
+    errors,
+  };
+}
+
 module.exports = {
   validateDriverOnboarding,
+  validateListDriversQuery,
 };

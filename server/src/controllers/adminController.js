@@ -5,7 +5,7 @@ const User = require("../models/userModel");
 const { hashPassword } = require("../utils/security");
 const { sendError, sendSuccess } = require("../utils/response");
 const { getUniqueConflictMessage } = require("../utils/database");
-const { validateDriverOnboarding } = require("../validators/adminValidator");
+const { validateDriverOnboarding, validateListDriversQuery } = require("../validators/adminValidator");
 
 function generateDriverCode() {
   return `OAU-${crypto.randomInt(1000, 10000)}`;
@@ -35,15 +35,31 @@ async function me(req, res) {
 }
 
 async function listDrivers(req, res) {
+  const { data: queryParams, errors: queryErrors } = validateListDriversQuery(req.query);
+
+  if (queryErrors.length > 0) {
+    return sendError(res, 400, "Invalid query parameters.", queryErrors);
+  }
+
   const client = await pool.connect();
 
   try {
     const result = await Driver.listAdmin(client, {
-      search: req.query.search,
+      page: queryParams.page,
+      perPage: queryParams.perPage,
+      status: queryParams.status,
+      search: queryParams.search,
+      sort: queryParams.sort,
     });
 
     return sendSuccess(res, 200, "Drivers retrieved successfully.", {
       drivers: result.rows.map(Driver.toAdminResponse),
+      pagination: {
+        totalCount: result.totalCount,
+        totalPages: result.totalPages,
+        currentPage: result.currentPage,
+        limit: queryParams.perPage,
+      },
     });
   } catch (error) {
     return sendError(res, 500, "Unable to retrieve drivers.", error.message);
