@@ -96,6 +96,7 @@ async function getCurrentLocationName(latitude, longitude) {
 export function PassengerMap() {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
+  const userMarkerRef = useRef(null);
   const selectedSpotMarkerRef = useRef(null);
   const driverMarkersRef = useRef(new Map());
   const location = useLocation();
@@ -111,7 +112,7 @@ export function PassengerMap() {
   const [searchResults, setSearchResults] = useState([]);
   const [selectedSpot, setSelectedSpot] = useState(() => {
     const saved = localStorage.getItem("passenger_selectedSpot");
-    return saved ? JSON.parse(saved) : PREDEFINED_HOTSPOTS[0];
+    return saved ? JSON.parse(saved) : null;
   });
   const [timeLeft, setTimeLeft] = useState(() => {
     const expiresAt = localStorage.getItem("passenger_hotspotExpiresAt");
@@ -140,20 +141,25 @@ export function PassengerMap() {
   const [isLocating, setIsLocating] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
   const [userInitials, setUserInitials] = useState("U");
+  const [passengerCoords, setPassengerCoords] = useState(() => {
+    if (
+      typeof location.state?.lat === "number" &&
+      typeof location.state?.lng === "number"
+    ) {
+      return [location.state.lng, location.state.lat];
+    }
+
+    return null;
+  });
   const [driverStatus, setDriverStatus] = useState("Check nearby drivers around your pickup point.");
   const queryOrigin = useMemo(
     () =>
-      location.state?.lat && location.state?.lng
-        ? [location.state.lng, location.state.lat]
-        : selectedSpot?.coords || OAU_CENTER,
-    [location.state?.lat, location.state?.lng, selectedSpot],
+      selectedSpot?.coords || passengerCoords || OAU_CENTER,
+    [passengerCoords, selectedSpot],
   );
   const userMapCoords = useMemo(
-    () =>
-      typeof location.state?.lat === "number" && typeof location.state?.lng === "number"
-        ? [location.state.lng, location.state.lat]
-        : OAU_CENTER,
-    [location.state?.lat, location.state?.lng],
+    () => passengerCoords || OAU_CENTER,
+    [passengerCoords],
   );
 
   useEffect(() => {
@@ -161,6 +167,25 @@ export function PassengerMap() {
       .then((profile) => setUserInitials(getInitials(profile?.fullName || profile?.full_name)))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!("geolocation" in navigator)) return;
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => setPassengerCoords([coords.longitude, coords.latitude]),
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!passengerCoords || !mapRef.current || !userMarkerRef.current) return;
+
+    userMarkerRef.current.setLngLat(passengerCoords);
+    if (!selectedSpot) {
+      mapRef.current.easeTo({ center: passengerCoords, duration: 700 });
+    }
+  }, [passengerCoords, selectedSpot]);
 
   function focusMapOnDrivers(origin, drivers) {
     if (!mapRef.current || !isMapReady || !origin || drivers.length === 0) return;
@@ -282,6 +307,21 @@ export function PassengerMap() {
     driverMarkersRef.current.get(driver.id)?.togglePopup();
   }
 
+  function focusUserLocation() {
+    focusMapAt(userMapCoords);
+    userMarkerRef.current?.togglePopup();
+  }
+
+  function focusPickupPoint() {
+    if (!selectedSpot) {
+      toast.info("Choose a pickup point first.");
+      return;
+    }
+
+    focusMapAt(selectedSpot.coords);
+    selectedSpotMarkerRef.current?.togglePopup();
+  }
+
   const navigate = useNavigate();
 
   // Map Initialization
@@ -326,8 +366,9 @@ export function PassengerMap() {
       const userEl = document.createElement("div");
       userEl.className =
         "w-5 h-5 bg-[#3198F5] rounded-full border-[3px] border-white shadow-lg ring-4 ring-[#3198F5]/20";
-      new maplibregl.Marker({ element: userEl })
+      userMarkerRef.current = new maplibregl.Marker({ element: userEl })
         .setLngLat(initialCenter)
+        .setPopup(new maplibregl.Popup({ offset: 14 }).setText("Your location"))
         .addTo(map);
     });
   }, [location.state]);
@@ -352,6 +393,7 @@ export function PassengerMap() {
           anchor: "bottom",
         })
           .setLngLat(selectedSpot.coords)
+          .setPopup(new maplibregl.Popup({ offset: 18 }).setText("Pickup point"))
           .addTo(mapRef.current);
       } else {
         selectedSpotMarkerRef.current.setLngLat(selectedSpot.coords);
@@ -386,7 +428,9 @@ export function PassengerMap() {
         }
       } else {
         const el = document.createElement("div");
-        const seatCount = d.seats ?? Math.floor(Math.random() * 3) + 1; // Default to random 1-3 seats if none provided
+        // Seat availability is not yet provided by the API; use a stable
+        // fallback instead of showing a misleading random number.
+        const seatCount = d.seats ?? 1;
         const markerColor = d.isClosest ? "#0f9d58" : "#00497d";
         el.style.cssText = "display:flex; flex-direction:column; align-items:center; min-width:56px;";
         el.setAttribute("aria-label", "Active driver");
@@ -486,6 +530,8 @@ export function PassengerMap() {
       localStorage.setItem("passenger_hotspotExpiresAt", Date.now() + 300 * 1000);
 
       toast.success(data.message);
+      // Start the driver search as soon as the passenger's pickup hotspot is live.
+      await loadNearbyDrivers({ origin: spot.coords, announce: true });
     } catch (e) {
       toast.error(e.message || "Failed to arm hotspot");
     } finally {
@@ -522,7 +568,6 @@ export function PassengerMap() {
     setSelectedSpot(result);
     setSearchQuery("");
     setSearchResults([]);
-    loadNearbyDrivers({ origin: result.coords, announce: true });
     if (!isArmed) {
       handleArm(result);
     }
@@ -538,6 +583,7 @@ export function PassengerMap() {
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
         const locationName = await getCurrentLocationName(coords.latitude, coords.longitude);
+        setPassengerCoords([coords.longitude, coords.latitude]);
         const spot = {
           name: locationName,
           coords: [coords.longitude, coords.latitude],
@@ -545,7 +591,6 @@ export function PassengerMap() {
         };
         setSelectedSpot(spot);
         setIsLocating(false);
-        loadNearbyDrivers({ origin: spot.coords, announce: true });
         if (!isArmed) {
           handleArm(spot);
         }
@@ -631,15 +676,15 @@ export function PassengerMap() {
             <button type="button" onClick={focusFirstDriver} className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-[#edf6ff]">
               <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-white bg-[#00497d] text-white shadow-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
-                <div className="absolute min-w-[12px] h-[12px] px-[2px] flex items-center justify-center text-[8px] font-bold rounded-full shadow-sm" style={{ backgroundColor: '#ba1a1a', color: 'white', border: '1px solid white', top: '-4px', right: '-4px' }}>2</div>
+                <div className="absolute min-w-[12px] h-[12px] px-[2px] flex items-center justify-center text-[8px] font-bold rounded-full shadow-sm" style={{ backgroundColor: '#ba1a1a', color: 'white', border: '1px solid white', top: '-4px', right: '-4px' }}>{activeDrivers.length}</div>
               </div>
-              <span className="text-xs font-semibold text-gray-700">Available Driver<br/><span className="text-[10px] text-gray-500 font-normal">Go to the closest available driver</span></span>
+              <span className="text-xs font-semibold text-gray-700">Available Driver<br/><span className="text-[10px] text-gray-500 font-normal">{activeDrivers.length ? "Go to the closest available driver" : "No active driver in your range"}</span></span>
             </button>
-            <button type="button" onClick={() => focusMapAt(userMapCoords)} className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-[#edf6ff]">
+            <button type="button" onClick={focusUserLocation} className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-[#edf6ff]">
               <div className="w-8 h-8 bg-[#3198F5] rounded-full border-[2px] border-white shadow-sm ring-2 ring-[#3198F5]/20" />
               <span className="text-xs font-semibold text-gray-700">Your Location</span>
             </button>
-            <button type="button" onClick={() => selectedSpot ? focusMapAt(selectedSpot.coords) : toast.info("Choose a pickup point first.")} className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-[#edf6ff]">
+            <button type="button" onClick={focusPickupPoint} className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-[#edf6ff]">
               <MapPin className="w-6 h-6 text-[#3198F5] ml-1" />
               <span className="text-xs font-semibold text-gray-700 ml-1">Pickup Point</span>
             </button>
