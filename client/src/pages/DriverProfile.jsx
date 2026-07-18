@@ -276,6 +276,7 @@ export function DriverProfile() {
         <p className="text-center text-xs font-bold text-gray-400 mt-6 pb-[100px]">
           OBer Driver App v1.0.0
         </p>
+
       </div>
       <DriverBottomNav activePage="profile" />
     </div>

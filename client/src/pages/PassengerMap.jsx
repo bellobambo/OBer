@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Search, X, Settings2, Car, MapPin } from "lucide-react";
+import { Search, X, Settings2, Car, MapPin, Info } from "lucide-react";
 import { toast } from "sonner";
 import { BottomNav } from "../components/BottomNav";
 import { BrandLogo } from "../components/BrandLogo";
@@ -105,6 +105,7 @@ export function PassengerMap() {
   const [isArmed, setIsArmed] = useState(() => hasStoredHotspot);
   const [hotspotId, setHotspotId] = useState(() => localStorage.getItem("passenger_hotspotId") || null);
   const [isArming, setIsArming] = useState(false);
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -137,6 +138,7 @@ export function PassengerMap() {
   const [driverRadiusKm, setDriverRadiusKm] = useState(DEFAULT_DRIVER_RADIUS_KM);
   const [isLoadingDrivers, setIsLoadingDrivers] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [isMapReady, setIsMapReady] = useState(false);
   const [userInitials, setUserInitials] = useState("U");
   const [driverStatus, setDriverStatus] = useState("Check nearby drivers around your pickup point.");
   const queryOrigin = useMemo(
@@ -146,6 +148,13 @@ export function PassengerMap() {
         : selectedSpot?.coords || OAU_CENTER,
     [location.state?.lat, location.state?.lng, selectedSpot],
   );
+  const userMapCoords = useMemo(
+    () =>
+      typeof location.state?.lat === "number" && typeof location.state?.lng === "number"
+        ? [location.state.lng, location.state.lat]
+        : OAU_CENTER,
+    [location.state?.lat, location.state?.lng],
+  );
 
   useEffect(() => {
     fetchUserProfile()
@@ -154,7 +163,7 @@ export function PassengerMap() {
   }, []);
 
   function focusMapOnDrivers(origin, drivers) {
-    if (!mapRef.current || !origin || drivers.length === 0) return;
+    if (!mapRef.current || !isMapReady || !origin || drivers.length === 0) return;
 
     const bounds = drivers.reduce(
       (nextBounds, driver) => nextBounds.extend(driver.coords),
@@ -177,12 +186,15 @@ export function PassengerMap() {
       const [longitude, latitude] = origin;
       const response = await getNearbyDrivers(latitude, longitude, driverRadiusKm);
       const drivers = {};
-      (response.data?.drivers || []).forEach((driver) => {
+      (response.data?.drivers || []).forEach((driver, index) => {
         const id = driver.driver_id ?? driver.driverId;
         drivers[id] = {
           id,
           coords: [Number(driver.longitude), Number(driver.latitude)],
           heading: driver.heading,
+          name: driver.full_name ?? driver.fullName,
+          driverCode: driver.driver_code ?? driver.driverCode,
+          isClosest: index === 0,
         };
       });
 
@@ -233,6 +245,7 @@ export function PassengerMap() {
         return {
           ...prev,
           [payload.driverId]: {
+            ...prev[payload.driverId],
             id: payload.driverId,
             coords: nextCoords,
             heading: payload.heading,
@@ -251,6 +264,23 @@ export function PassengerMap() {
   }, [socket, isDemoMode, queryOrigin, driverRadiusKm]);
 
   const activeDrivers = isDemoMode ? dummyDrivers : Object.values(liveDrivers);
+
+  function focusMapAt(coords) {
+    if (!mapRef.current || !coords) return;
+    mapRef.current.flyTo({ center: coords, zoom: 16.5, speed: 1.2 });
+    setIsLegendOpen(false);
+  }
+
+  function focusFirstDriver() {
+    const driver = activeDrivers.find((item) => item.isClosest) || activeDrivers[0];
+    if (!driver) {
+      toast.info("No active drivers are available in your selected range.");
+      return;
+    }
+
+    focusMapAt(driver.coords);
+    driverMarkersRef.current.get(driver.id)?.togglePopup();
+  }
 
   const navigate = useNavigate();
 
@@ -282,6 +312,16 @@ export function PassengerMap() {
     mapRef.current = map;
 
     map.on("load", () => {
+      setIsMapReady(true);
+
+      // Parking symbols belong to the base-map style; active passengers and
+      // drivers are rendered with our own markers instead.
+      map.getStyle().layers?.forEach((layer) => {
+        if (layer.type === "symbol" && /parking/i.test(layer.id)) {
+          map.setLayoutProperty(layer.id, "visibility", "none");
+        }
+      });
+
       // User Marker
       const userEl = document.createElement("div");
       userEl.className =
@@ -324,7 +364,7 @@ export function PassengerMap() {
 
   // Handle moving driver markers
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !isMapReady) return;
 
     const currentIds = new Set(activeDrivers.map(d => d.id));
 
@@ -346,30 +386,22 @@ export function PassengerMap() {
         }
       } else {
         const el = document.createElement("div");
-        el.className = "transition-all duration-1000 ease-linear drop-shadow-xl";
-        // Sleek, top-down view of a sedan car
+        const seatCount = d.seats ?? Math.floor(Math.random() * 3) + 1; // Default to random 1-3 seats if none provided
+        const markerColor = d.isClosest ? "#0f9d58" : "#00497d";
+        el.style.cssText = "display:flex; flex-direction:column; align-items:center; min-width:56px;";
+        el.setAttribute("aria-label", "Active driver");
         el.innerHTML = `
-          <svg width="24" height="46" viewBox="0 0 28 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- Shadow under the car -->
-            <rect x="1" y="4" width="26" height="52" rx="12" fill="rgba(0,0,0,0.15)"/>
-            <!-- Main Body -->
-            <rect x="2" y="2" width="24" height="52" rx="10" fill="#2c3e50"/>
-            <!-- Roof -->
-            <rect x="4" y="16" width="20" height="24" rx="4" fill="#1a252f"/>
-            <!-- Front Windshield -->
-            <path d="M 4 16 Q 14 10 24 16 L 22 20 Q 14 17 6 20 Z" fill="#87ceeb"/>
-            <!-- Rear Windshield -->
-            <path d="M 4 40 Q 14 45 24 40 L 22 36 Q 14 38 6 36 Z" fill="#87ceeb"/>
-            <!-- Headlights -->
-            <rect x="4" y="2" width="5" height="3" rx="1.5" fill="#f1c40f"/>
-            <rect x="19" y="2" width="5" height="3" rx="1.5" fill="#f1c40f"/>
-            <!-- Taillights -->
-            <rect x="4" y="51" width="5" height="3" rx="1.5" fill="#e74c3c"/>
-            <rect x="19" y="51" width="5" height="3" rx="1.5" fill="#e74c3c"/>
-          </svg>
+          <div style="position:relative; display:flex; height:52px; width:52px; align-items:center; justify-content:center; border:2px solid white; border-radius:9999px; background:${markerColor}; color:white; box-shadow:0 6px 18px rgba(0,73,125,.45), 0 0 0 5px ${markerColor}33;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+            <div style="position:absolute; top:-7px; right:-7px; display:flex; min-width:20px; height:20px; align-items:center; justify-content:center; border:2px solid white; border-radius:9999px; background:#ba1a1a; padding:0 3px; color:white; font-size:10px; font-weight:700; box-shadow:0 2px 4px rgba(0,0,0,.2);">
+              ${seatCount}
+            </div>
+          </div>
+          ${d.isClosest ? '<span style="margin-top:4px; border-radius:9999px; background:#0f9d58; padding:2px 8px; color:white; font-size:10px; font-weight:700; box-shadow:0 2px 4px rgba(0,0,0,.2);">Closest</span>' : ""}
         `;
-        const marker = new maplibregl.Marker({ element: el })
+        const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
           .setLngLat(d.coords)
+          .setPopup(new maplibregl.Popup({ offset: 30 }).setText(`${d.name || d.driverCode || "Active driver"}${d.isClosest ? " (closest)" : ""}`))
           .addTo(mapRef.current);
           
         if (d.heading !== undefined && d.heading !== null) {
@@ -379,7 +411,7 @@ export function PassengerMap() {
         driverMarkersRef.current.set(d.id, marker);
       }
     });
-  }, [activeDrivers]);
+  }, [activeDrivers, isMapReady]);
 
   // Handle Search Debounce
   useEffect(() => {
@@ -557,7 +589,14 @@ export function PassengerMap() {
       {/* Top App Bar */}
       <header className="fixed top-0 w-full z-[30] flex justify-between items-center px-6 h-16 bg-[#e6e8ea]/60 backdrop-blur-md border-b border-[#c1c7d2]/30">
         <BrandLogo />
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsLegendOpen(!isLegendOpen)}
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-white text-gray-700 border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors"
+            aria-label="Map Legend"
+          >
+            <Info className="w-4 h-4" />
+          </button>
           <button 
             onClick={() => setIsDemoMode(!isDemoMode)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors border shadow-sm ${
@@ -579,6 +618,34 @@ export function PassengerMap() {
           </button>
         </div>
       </header>
+
+      {isLegendOpen && (
+        <div className="absolute top-20 right-4 z-[60] w-64 bg-white/95 backdrop-blur-md border border-gray-200 shadow-xl rounded-2xl p-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-bold text-sm text-[#3198F5]">Map Legend</h3>
+            <button onClick={() => setIsLegendOpen(false)} className="text-gray-500 hover:text-gray-800">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-3">
+            <button type="button" onClick={focusFirstDriver} className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-[#edf6ff]">
+              <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-white bg-[#00497d] text-white shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+                <div className="absolute min-w-[12px] h-[12px] px-[2px] flex items-center justify-center text-[8px] font-bold rounded-full shadow-sm" style={{ backgroundColor: '#ba1a1a', color: 'white', border: '1px solid white', top: '-4px', right: '-4px' }}>2</div>
+              </div>
+              <span className="text-xs font-semibold text-gray-700">Available Driver<br/><span className="text-[10px] text-gray-500 font-normal">Go to the closest available driver</span></span>
+            </button>
+            <button type="button" onClick={() => focusMapAt(userMapCoords)} className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-[#edf6ff]">
+              <div className="w-8 h-8 bg-[#3198F5] rounded-full border-[2px] border-white shadow-sm ring-2 ring-[#3198F5]/20" />
+              <span className="text-xs font-semibold text-gray-700">Your Location</span>
+            </button>
+            <button type="button" onClick={() => selectedSpot ? focusMapAt(selectedSpot.coords) : toast.info("Choose a pickup point first.")} className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-[#edf6ff]">
+              <MapPin className="w-6 h-6 text-[#3198F5] ml-1" />
+              <span className="text-xs font-semibold text-gray-700 ml-1">Pickup Point</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* FAB */}
       <div

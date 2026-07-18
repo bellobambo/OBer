@@ -193,7 +193,7 @@ export function PassengerProfile() {
               <ChevronRight className="w-5 h-5 text-gray-300" />
             </div>
             
-            <div className="flex items-center gap-4 group cursor-pointer">
+            <div className="hidden items-center gap-4 group cursor-pointer" aria-hidden="true">
               <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-[#3198F5] group-hover:bg-[#3198F5] group-hover:text-white transition-colors">
                 <ShieldCheck className="w-5 h-5" />
               </div>
@@ -206,10 +206,9 @@ export function PassengerProfile() {
           </div>
         </div>
 
-        {/* App Section */}
-        <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] mb-6">
+        {/* Hidden app preferences kept in place for future activation. */}
+        <div className="hidden bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] mb-6" aria-hidden="true">
           <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-5">App</h3>
-          
           <div className="space-y-5">
             <div className="flex items-center gap-4 group cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 group-hover:bg-gray-100 transition-colors">
@@ -218,7 +217,6 @@ export function PassengerProfile() {
               <div className="flex-1 text-sm font-bold text-gray-900">Notifications</div>
               <ChevronRight className="w-5 h-5 text-gray-300" />
             </div>
-            
             <div className="flex items-center gap-4 group cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 group-hover:bg-gray-100 transition-colors">
                 <Settings className="w-5 h-5" />
@@ -226,12 +224,11 @@ export function PassengerProfile() {
               <div className="flex-1 text-sm font-bold text-gray-900">Settings</div>
               <ChevronRight className="w-5 h-5 text-gray-300" />
             </div>
-
             <div className="flex items-center gap-4 group cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 group-hover:bg-gray-100 transition-colors">
                 <LifeBuoy className="w-5 h-5" />
               </div>
-              <div className="flex-1 text-sm font-bold text-gray-900">Help & Support</div>
+              <div className="flex-1 text-sm font-bold text-gray-900">Help &amp; Support</div>
               <ChevronRight className="w-5 h-5 text-gray-300" />
             </div>
           </div>
@@ -355,6 +352,7 @@ export function PassengerProfile() {
         <p className="text-center text-xs font-bold text-gray-400 mt-6 pb-[100px]">
           OBer Passenger App v1.0.0
         </p>
+
       </div>
 
       <BottomNav activePage="profile" />

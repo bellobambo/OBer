@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import maplibregl from "maplibre-gl";
-import { Settings2 } from "lucide-react";
+import { Eye, EyeOff, Settings2, Info, X } from "lucide-react";
 import { toast } from "sonner";
 import { DriverBottomNav } from "../components/DriverBottomNav";
 import { BrandLogo } from "../components/BrandLogo";
-import { getActiveHotspots, updateDriverVisibility } from "../services/api";
+import { fetchUserProfile, getActiveHotspots, updateDriverVisibility } from "../services/api";
 import { useSocket } from "../contexts/SocketContext";
 
 const DEFAULT_CENTER = [4.518, 7.52];
@@ -50,6 +50,16 @@ function normalizeRadius(value) {
   const radius = Number(value);
   if (!Number.isFinite(radius)) return DEFAULT_HOTSPOT_RADIUS_KM;
   return Math.min(MAX_SEARCH_RADIUS_KM, Math.max(MIN_SEARCH_RADIUS_KM, radius));
+}
+
+function getInitials(name) {
+  return String(name || "Driver")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 }
 
 function normalizeCoords(hotspot) {
@@ -99,6 +109,9 @@ export function DriverMap() {
   const [searchRadiusKm, setSearchRadiusKm] = useState(DEFAULT_HOTSPOT_RADIUS_KM);
   const [hotspotMode, setHotspotMode] = useState("nearby");
   const [isLoadingHotspots, setIsLoadingHotspots] = useState(false);
+  const [isPassengerSearchVisible, setIsPassengerSearchVisible] = useState(true);
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
+  const [driverInitials, setDriverInitials] = useState("D");
   const [hotspotStatus, setHotspotStatus] = useState("Load nearby passengers or switch to all hotspots.");
   const [driverCoords, setDriverCoords] = useState(() => {
     if (
@@ -110,6 +123,29 @@ export function DriverMap() {
 
     return null;
   });
+
+  function focusMapAt(coords) {
+    if (!mapRef.current || !coords) return;
+    mapRef.current.flyTo({ center: coords, zoom: 16.5, speed: 1.2 });
+    setIsLegendOpen(false);
+  }
+
+  function focusFirstPassengerHotspot() {
+    const hotspots = isDemoMode ? DUMMY_HOTSPOTS : Object.values(liveHotspots);
+    const hotspot = hotspots[0];
+    if (!hotspot) {
+      toast.info("No active passenger hotspots are available in your selected range.");
+      return;
+    }
+
+    focusMapAt(normalizeCoords(hotspot));
+  }
+
+  useEffect(() => {
+    fetchUserProfile()
+      .then((profile) => setDriverInitials(getInitials(profile?.fullName || profile?.full_name)))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -229,6 +265,15 @@ export function DriverMap() {
       attributionControl: false,
     });
 
+    mapRef.current.on("load", () => {
+      // Do not confuse built-in parking POIs with active passenger markers.
+      mapRef.current.getStyle().layers?.forEach((layer) => {
+        if (layer.type === "symbol" && /parking/i.test(layer.id)) {
+          mapRef.current.setLayoutProperty(layer.id, "visibility", "none");
+        }
+      });
+    });
+
     const el = document.createElement("div");
     el.className = "w-5 h-5 bg-[#3198F5] rounded-full border-[3px] border-white shadow-lg ring-4 ring-[#3198F5]/20";
     driverMarkerRef.current = new maplibregl.Marker({ element: el })
@@ -254,7 +299,7 @@ export function DriverMap() {
       el.className = "flex flex-col items-center pointer-events-none";
       el.innerHTML = `
         <div class="bg-white h-12 w-12 rounded-full shadow-lg border-[2px] flex items-center justify-center relative transition-transform duration-500 hover:scale-110" style="border-color: #00497d;">
-          <span class="text-[20px] font-black leading-none" style="color: #00497d;">P</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00497d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <div class="absolute min-w-[20px] h-[20px] px-1 flex items-center justify-center text-[10px] font-bold rounded-full shadow-sm" style="background-color: #ba1a1a; color: white; border: 2px solid white; top: -6px; right: -6px;">
             ${spot.passengerCount || spot.count || 0}
           </div>
@@ -376,7 +421,15 @@ export function DriverMap() {
       <header className="absolute top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
         <BrandLogo />
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsLegendOpen(!isLegendOpen)}
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-white text-gray-700 border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors"
+            aria-label="Map Legend"
+          >
+            <Info className="w-4 h-4" />
+          </button>
+
           <button
             onClick={() => setIsDemoMode(!isDemoMode)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors border shadow-sm ${
@@ -389,84 +442,131 @@ export function DriverMap() {
             {isDemoMode ? "Demo Mode" : "Live Mode"}
           </button>
 
-          <div
+          <button
+            type="button"
             onClick={() => navigate("/driver/profile")}
-            className="w-9 h-9 rounded-full overflow-hidden border-2 border-gray-200 cursor-pointer hover:border-[#3198F5] transition-colors"
+            className="w-9 h-9 rounded-full border-2 border-gray-200 bg-[#00497d] text-xs font-bold text-white hover:border-[#3198F5] transition-colors"
+            aria-label="Open profile"
           >
-            <img
-              alt="Profile"
-              className="w-full h-full object-cover"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuARDgvR22O96b4HBpQ0Aw8XZESjhQtt9qLMFQ-LPMckgproLzqsPsC1uf2JYDJZtB6u33vdw-RMd1ST284YnfOouNowxOtlI7Ild8WpXRaywVQ2Vg0hTVnfMk-Bxq3-0XRihvyqw0IIFhefChwBrJquxMV45O0BpGRcRlh63-F0tlXi-OWmt6IYKGfKQ6HpdlCzauaGppDq84PM1VcQURl1th5NTuIKu6gIoEPKaJUTzx4DAX-qmWVXAuXPMJHnkamhD-p_YxpQx_g"
-            />
-          </div>
+            {driverInitials}
+          </button>
         </div>
       </header>
 
-      <section className="absolute top-20 left-4 right-4 z-40">
-        <div className="rounded-3xl border border-white/60 bg-white/88 p-4 shadow-lg backdrop-blur-md">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#00497d]">Passenger Search</p>
-              <p className="mt-1 text-sm text-gray-600">{hotspotStatus}</p>
-            </div>
-            <div className="rounded-full bg-[#e8f2fb] px-3 py-1 text-sm font-bold text-[#00497d]">
-              {Object.keys(liveHotspots).length}
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => loadHotspots("nearby")}
-              disabled={isLoadingHotspots || (hotspotMode === "nearby" && !driverCoords && !isDemoMode)}
-              className="rounded-full bg-[#00497d] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isLoadingHotspots && hotspotMode === "nearby" ? "Loading..." : "Nearby Passengers"}
-            </button>
-            <button
-              type="button"
-              onClick={() => loadHotspots("all")}
-              disabled={isLoadingHotspots}
-              className="rounded-full border border-[#c9d7e6] bg-white px-4 py-2 text-sm font-semibold text-[#00497d] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isLoadingHotspots && hotspotMode === "all" ? "Loading..." : "All Hotspots"}
+      {isLegendOpen && (
+        <div className="absolute top-20 right-4 z-[60] w-64 bg-white/95 backdrop-blur-md border border-gray-200 shadow-xl rounded-2xl p-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-bold text-sm text-[#00497d]">Map Legend</h3>
+            <button onClick={() => setIsLegendOpen(false)} className="text-gray-500 hover:text-gray-800">
+              <X className="w-4 h-4" />
             </button>
           </div>
+          <div className="space-y-3">
+            <button type="button" onClick={focusFirstPassengerHotspot} className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-[#edf6ff]">
+              <div className="bg-white h-8 w-8 rounded-full shadow-sm border flex items-center justify-center relative" style={{ borderColor: '#00497d' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00497d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <div className="absolute min-w-[12px] h-[12px] px-[2px] flex items-center justify-center text-[8px] font-bold rounded-full shadow-sm" style={{ backgroundColor: '#ba1a1a', color: 'white', border: '1px solid white', top: '-4px', right: '-4px' }}>3</div>
+              </div>
+              <span className="text-xs font-semibold text-gray-700">Passenger Hotspot<br/><span className="text-[10px] text-gray-500 font-normal">Go to the first active hotspot</span></span>
+            </button>
+            <button type="button" onClick={() => focusMapAt(driverCoords || DEFAULT_CENTER)} className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-[#edf6ff]">
+              <div className="w-8 h-8 bg-[#3198F5] rounded-full border-[2px] border-white shadow-sm ring-2 ring-[#3198F5]/20" />
+              <span className="text-xs font-semibold text-gray-700">Your Location</span>
+            </button>
+          </div>
+        </div>
+      )}
 
-          <div className="mt-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Search Radius</p>
+      <section className="absolute top-20 left-4 right-4 z-40 pointer-events-none">
+        <div className="pointer-events-auto">
+          {isPassengerSearchVisible ? (
+          <div className="rounded-3xl border border-white/60 bg-white/88 p-4 shadow-lg backdrop-blur-md">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#00497d]">Passenger Search</p>
+                <p className="mt-1 text-sm text-gray-600">{hotspotStatus}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="rounded-full bg-[#e8f2fb] px-3 py-1 text-sm font-bold text-[#00497d]">
+                  {Object.keys(liveHotspots).length}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPassengerSearchVisible(false)}
+                  className="flex items-center gap-1.5 rounded-full border border-[#c9d7e6] bg-white px-3 py-1.5 text-xs font-bold text-black hover:bg-[#e8f2fb]"
+                  aria-label="Hide passenger search"
+                  title="Hide passenger search"
+                >
+                  <EyeOff className="h-4 w-4" />
+                  Hide
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => loadHotspots("nearby")}
+                disabled={isLoadingHotspots || (hotspotMode === "nearby" && !driverCoords && !isDemoMode)}
+                className="rounded-full bg-[#00497d] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isLoadingHotspots && hotspotMode === "nearby" ? "Loading..." : "Nearby Passengers"}
+              </button>
+              <button
+                type="button"
+                onClick={() => loadHotspots("all")}
+                disabled={isLoadingHotspots}
+                className="rounded-full border border-[#c9d7e6] bg-white px-4 py-2 text-sm font-semibold text-[#00497d] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isLoadingHotspots && hotspotMode === "all" ? "Loading..." : "All Hotspots"}
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Search Radius</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {RANGE_OPTIONS_KM.map((radius) => (
-                <button
-                  key={radius}
-                  type="button"
-                  onClick={() => setSearchRadiusKm(radius)}
-                  className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
-                    searchRadiusKm === radius
-                      ? "bg-[#3198F5] text-white"
-                      : "bg-[#eef3f8] text-[#4a5c6e]"
-                  }`}
-                >
-                  {radius} km
+                  <button
+                    key={radius}
+                    type="button"
+                    onClick={() => setSearchRadiusKm(radius)}
+                    className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                      searchRadiusKm === radius
+                        ? "bg-[#3198F5] text-white"
+                        : "bg-[#eef3f8] text-[#4a5c6e]"
+                    }`}
+                  >
+                    {radius} km
                   </button>
                 ))}
-                <label className="flex items-center gap-2 rounded-full border border-[#c9d7e6] bg-white px-3 py-1.5 text-sm font-semibold text-[#4a5c6e]">
-                  <span className="sr-only">Custom passenger search radius in kilometres</span>
-                  <input
-                    type="number"
-                    min={MIN_SEARCH_RADIUS_KM}
-                    max={MAX_SEARCH_RADIUS_KM}
-                    step="1"
-                    value={searchRadiusKm}
-                    onChange={(event) => setSearchRadiusKm(normalizeRadius(event.target.value))}
-                    className="w-9 bg-transparent text-right outline-none"
-                    aria-label="Custom passenger search radius in kilometres"
-                  />
-                  <span>km</span>
-                </label>
+                  <label className="flex items-center gap-2 rounded-full border border-[#c9d7e6] bg-white px-3 py-1.5 text-sm font-semibold text-[#4a5c6e]">
+                    <span className="sr-only">Custom passenger search radius in kilometres</span>
+                    <input
+                      type="number"
+                      min={MIN_SEARCH_RADIUS_KM}
+                      max={MAX_SEARCH_RADIUS_KM}
+                      step="1"
+                      value={searchRadiusKm}
+                      onChange={(event) => setSearchRadiusKm(normalizeRadius(event.target.value))}
+                      className="w-9 bg-transparent text-right outline-none"
+                      aria-label="Custom passenger search radius in kilometres"
+                    />
+                    <span>km</span>
+                  </label>
               </div>
               <p className="mt-2 text-xs text-gray-500">Choose any range from 1 to 50 km.</p>
             </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsPassengerSearchVisible(true)}
+            className="flex items-center gap-2 rounded-full border border-white/60 bg-white/88 px-4 py-2.5 text-sm font-semibold text-black shadow-lg backdrop-blur-md"
+          >
+            <Eye className="h-4 w-4" />
+            Show Passenger Search
+          </button>
+        )}
         </div>
       </section>
 

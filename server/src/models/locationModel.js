@@ -82,6 +82,7 @@ class Location {
         updated_at,
         users!inner(
           id,
+          full_name,
           phone,
           role,
           drivers!inner(
@@ -109,6 +110,7 @@ class Location {
 
         return {
           driver_id: location.users.id,
+          full_name: location.users.full_name,
           phone: location.users.phone,
           driver_code: driver.driver_code,
           latitude: location.latitude,
