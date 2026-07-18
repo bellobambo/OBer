@@ -4,6 +4,7 @@ import { LayoutDashboard, Users, LogOut, ArrowLeft, Menu, X } from "lucide-react
 import { toast } from "sonner";
 import { getAdminProfile } from "../../services/adminApi";
 import { Spinner } from "../../components/Spinner";
+import { BrandLogo } from "../../components/BrandLogo";
 
 export function AdminLayout() {
   const [isAdmin, setIsAdmin] = useState(null);
@@ -43,9 +44,10 @@ export function AdminLayout() {
     <div className="flex flex-col md:flex-row h-screen bg-[#f7f9fb] overflow-hidden font-sans text-[#191c1e]">
       {/* Mobile Top Bar */}
       <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-[#c1c7d2]/30 shadow-sm z-20 shrink-0">
-        <span className="text-xl font-bold tracking-tight text-[#3198F5]">
-          OBer <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md ml-1">ADMIN</span>
-        </span>
+        <div className="flex items-center gap-2">
+          <BrandLogo textClassName="text-xl" />
+          <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">ADMIN</span>
+        </div>
         <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2">
           {isSidebarOpen ? <X className="w-6 h-6 text-gray-700" /> : <Menu className="w-6 h-6 text-gray-700" />}
         </button>
@@ -58,9 +60,10 @@ export function AdminLayout() {
         } md:translate-x-0 transition-transform duration-300 fixed md:static top-0 left-0 h-full w-64 bg-white border-r border-[#c1c7d2]/30 flex flex-col shadow-sm z-30`}
       >
         <div className="h-16 flex items-center justify-between px-6 border-b border-[#c1c7d2]/30">
-          <span className="text-2xl font-bold tracking-tight text-[#3198F5]">
-            OBer <span className="text-sm font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md ml-2">ADMIN</span>
-          </span>
+          <div className="flex items-center gap-2">
+            <BrandLogo />
+            <span className="text-sm font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">ADMIN</span>
+          </div>
           <button className="md:hidden p-1 text-gray-500" onClick={() => setIsSidebarOpen(false)}>
             <X className="w-6 h-6" />
           </button>

@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Search, X, Settings2, Car, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { BottomNav } from "../components/BottomNav";
+import { BrandLogo } from "../components/BrandLogo";
 import { useDummyDrivers } from "../hooks/useDummyDrivers";
-import { armHotspot, disarmHotspot, getNearbyDrivers } from "../services/api";
+import { armHotspot, disarmHotspot, fetchUserProfile, getNearbyDrivers } from "../services/api";
 import { useSocket } from "../contexts/SocketContext";
 
 const OAU_BOUNDS = [
@@ -20,6 +21,77 @@ const PREDEFINED_HOTSPOTS = [
   { name: "OAU Health Centre", coords: [4.521, 7.525] },
   { name: "Faculty of Tech", coords: [4.528, 7.522] },
 ];
+
+const DEFAULT_DRIVER_RADIUS_KM = 5;
+const RANGE_OPTIONS_KM = [1, 3, 5, 10];
+const MIN_SEARCH_RADIUS_KM = 1;
+const MAX_SEARCH_RADIUS_KM = 50;
+
+function toRadians(value) {
+  return (value * Math.PI) / 180;
+}
+
+function calculateDistanceInKm(fromCoords, toCoords) {
+  if (!fromCoords || !toCoords) return Number.POSITIVE_INFINITY;
+
+  const [fromLongitude, fromLatitude] = fromCoords;
+  const [toLongitude, toLatitude] = toCoords;
+  const earthRadiusInKm = 6371;
+  const latitudeDelta = toRadians(toLatitude - fromLatitude);
+  const longitudeDelta = toRadians(toLongitude - fromLongitude);
+  const originLatitude = toRadians(fromLatitude);
+  const targetLatitude = toRadians(toLatitude);
+
+  const a =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(originLatitude) *
+      Math.cos(targetLatitude) *
+      Math.sin(longitudeDelta / 2) ** 2;
+
+  return earthRadiusInKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getInitials(name) {
+  return String(name || "User")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function normalizeRadius(value) {
+  const radius = Number(value);
+  if (!Number.isFinite(radius)) return DEFAULT_DRIVER_RADIUS_KM;
+  return Math.min(MAX_SEARCH_RADIUS_KM, Math.max(MIN_SEARCH_RADIUS_KM, radius));
+}
+
+async function getCurrentLocationName(latitude, longitude) {
+  try {
+    const query = new URLSearchParams({
+      lat: String(latitude),
+      lon: String(longitude),
+      format: "json",
+      zoom: "18",
+    });
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${query}`);
+    if (!response.ok) throw new Error("Unable to identify current location.");
+
+    const place = await response.json();
+    const address = place.address || {};
+    return (
+      place.name ||
+      address.amenity ||
+      address.building ||
+      address.road ||
+      place.display_name?.split(",").slice(0, 2).join(",").trim() ||
+      "Current location"
+    );
+  } catch {
+    return "Current location";
+  }
+}
 
 export function PassengerMap() {
   const mapContainer = useRef(null);
@@ -62,39 +134,109 @@ export function PassengerMap() {
   const { socket, isDemoMode, setIsDemoMode } = useSocket();
   const dummyDrivers = useDummyDrivers(selectedSpot?.coords, !!selectedSpot);
   const [liveDrivers, setLiveDrivers] = useState({});
+  const [driverRadiusKm, setDriverRadiusKm] = useState(DEFAULT_DRIVER_RADIUS_KM);
+  const [isLoadingDrivers, setIsLoadingDrivers] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [userInitials, setUserInitials] = useState("U");
+  const [driverStatus, setDriverStatus] = useState("Check nearby drivers around your pickup point.");
+  const queryOrigin = useMemo(
+    () =>
+      location.state?.lat && location.state?.lng
+        ? [location.state.lng, location.state.lat]
+        : selectedSpot?.coords || OAU_CENTER,
+    [location.state?.lat, location.state?.lng, selectedSpot],
+  );
 
   useEffect(() => {
-    if (isDemoMode || !selectedSpot?.coords) return;
-    const [longitude, latitude] = selectedSpot.coords;
-    getNearbyDrivers(latitude, longitude)
-      .then((response) => {
-        const drivers = {};
-        (response.data?.drivers || []).forEach((driver) => {
-          const id = driver.driver_id ?? driver.driverId;
-          drivers[id] = {
-            id,
-            coords: [Number(driver.longitude), Number(driver.latitude)],
-            heading: driver.heading,
-          };
-        });
-        setLiveDrivers(drivers);
-      })
-      .catch((error) => toast.error(error.message));
-  }, [isDemoMode, selectedSpot]);
+    fetchUserProfile()
+      .then((profile) => setUserInitials(getInitials(profile?.fullName || profile?.full_name)))
+      .catch(() => {});
+  }, []);
+
+  function focusMapOnDrivers(origin, drivers) {
+    if (!mapRef.current || !origin || drivers.length === 0) return;
+
+    const bounds = drivers.reduce(
+      (nextBounds, driver) => nextBounds.extend(driver.coords),
+      new maplibregl.LngLatBounds(origin, origin),
+    );
+
+    mapRef.current.fitBounds(bounds, {
+      padding: { top: 110, right: 56, bottom: 190, left: 56 },
+      maxZoom: 16,
+      duration: 700,
+    });
+  }
+
+  async function loadNearbyDrivers({ origin = queryOrigin, announce = false } = {}) {
+    if (isDemoMode || !origin) return;
+
+    setIsLoadingDrivers(true);
+
+    try {
+      const [longitude, latitude] = origin;
+      const response = await getNearbyDrivers(latitude, longitude, driverRadiusKm);
+      const drivers = {};
+      (response.data?.drivers || []).forEach((driver) => {
+        const id = driver.driver_id ?? driver.driverId;
+        drivers[id] = {
+          id,
+          coords: [Number(driver.longitude), Number(driver.latitude)],
+          heading: driver.heading,
+        };
+      });
+
+      setLiveDrivers(drivers);
+      const count = Object.keys(drivers).length;
+      const foundDrivers = Object.values(drivers);
+      setDriverStatus(
+        count > 0
+          ? `${count} driver${count === 1 ? "" : "s"} found nearby.`
+          : `No active drivers within ${driverRadiusKm} km.`,
+      );
+      if (announce) {
+        if (count > 0) {
+          toast.success(`${count} active driver${count === 1 ? "" : "s"} found within ${driverRadiusKm} km.`);
+          focusMapOnDrivers(origin, foundDrivers);
+          setIsModalOpen(false);
+        } else {
+          toast.info(`No active drivers within ${driverRadiusKm} km.`);
+        }
+      }
+    } catch (error) {
+      toast.error(error.message);
+      setDriverStatus("Unable to load nearby drivers right now.");
+    } finally {
+      setIsLoadingDrivers(false);
+    }
+  }
 
   useEffect(() => {
     if (!socket || isDemoMode) return;
-    
+
     const handleLocationUpdate = (payload) => {
-      setLiveDrivers(prev => {
+      const nextCoords = [payload.longitude, payload.latitude];
+
+      setLiveDrivers((prev) => {
         if (!payload.isVisible) {
           const copy = { ...prev };
           delete copy[payload.driverId];
           return copy;
         }
-        return { 
-          ...prev, 
-          [payload.driverId]: { id: payload.driverId, coords: [payload.longitude, payload.latitude] } 
+
+        if (queryOrigin && calculateDistanceInKm(queryOrigin, nextCoords) > driverRadiusKm) {
+          const copy = { ...prev };
+          delete copy[payload.driverId];
+          return copy;
+        }
+
+        return {
+          ...prev,
+          [payload.driverId]: {
+            id: payload.driverId,
+            coords: nextCoords,
+            heading: payload.heading,
+          },
         };
       });
     };
@@ -106,12 +248,9 @@ export function PassengerMap() {
       socket.off("driver:location", handleLocationUpdate);
       socket.off("driver:visibility", handleLocationUpdate);
     };
-  }, [socket, isDemoMode]);
+  }, [socket, isDemoMode, queryOrigin, driverRadiusKm]);
 
   const activeDrivers = isDemoMode ? dummyDrivers : Object.values(liveDrivers);
-
-  //state navigation
-  const [activePage, setActivePage] = useState(true); //Page currently being viewed
 
   const navigate = useNavigate();
 
@@ -322,7 +461,7 @@ export function PassengerMap() {
     }
   };
 
-  const handleCancelArm = async () => {
+  async function handleCancelArm() {
     if (hotspotId) {
       try {
         const response = await disarmHotspot(hotspotId);
@@ -339,7 +478,7 @@ export function PassengerMap() {
     localStorage.removeItem("passenger_hotspotId");
     localStorage.removeItem("passenger_selectedSpot");
     localStorage.removeItem("passenger_hotspotExpiresAt");
-  };
+  }
 
   const formatTime = seconds => {
     const m = Math.floor(seconds / 60);
@@ -351,9 +490,40 @@ export function PassengerMap() {
     setSelectedSpot(result);
     setSearchQuery("");
     setSearchResults([]);
+    loadNearbyDrivers({ origin: result.coords, announce: true });
     if (!isArmed) {
       handleArm(result);
     }
+  };
+
+  const useCurrentLocation = () => {
+    if (!("geolocation" in navigator)) {
+      toast.error("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        const locationName = await getCurrentLocationName(coords.latitude, coords.longitude);
+        const spot = {
+          name: locationName,
+          coords: [coords.longitude, coords.latitude],
+          isCurrentLocation: true,
+        };
+        setSelectedSpot(spot);
+        setIsLocating(false);
+        loadNearbyDrivers({ origin: spot.coords, announce: true });
+        if (!isArmed) {
+          handleArm(spot);
+        }
+      },
+      (error) => {
+        setIsLocating(false);
+        toast.error(error.message || "Unable to get your current location.");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
+    );
   };
 
   const handleKeyDown = e => {
@@ -363,18 +533,6 @@ export function PassengerMap() {
       } else if (searchQuery) {
         toast.error(`No campus results found for "${searchQuery}"`);
       }
-    }
-  };
-
-  //handles click from the nav bar
-
-  const handleClick = e => {
-    const clickedButton = e.target.closest("button");
-    if (!clickedButton) return;
-    const nav = clickedButton.getAttribute("data-nav");
-    if (nav === "profile") {
-      setActivePage(false);
-      navigate("/passenger/profile");
     }
   };
 
@@ -398,16 +556,7 @@ export function PassengerMap() {
 
       {/* Top App Bar */}
       <header className="fixed top-0 w-full z-[30] flex justify-between items-center px-6 h-16 bg-[#e6e8ea]/60 backdrop-blur-md border-b border-[#c1c7d2]/30">
-        <div className="flex items-center space-x-1.5">
-          <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center p-[2px] shadow-sm">
-            <div className="w-full h-full border-[2.5px] border-[#3198F5] rounded-full flex items-center justify-center">
-              <div className="w-1 h-1 bg-[#3198F5] rounded-full"></div>
-            </div>
-          </div>
-          <span className="text-2xl font-bold tracking-tight text-[#3198F5]">
-            Ber
-          </span>
-        </div>
+        <BrandLogo />
         <div className="flex items-center gap-4">
           <button 
             onClick={() => setIsDemoMode(!isDemoMode)}
@@ -420,12 +569,14 @@ export function PassengerMap() {
             <Settings2 className="w-3.5 h-3.5" />
             {isDemoMode ? "Demo Mode" : "Live Mode"}
           </button>
-          <div 
+          <button
+            type="button"
             onClick={() => navigate("/passenger/profile")}
-            className="w-9 h-9 rounded-full overflow-hidden border border-[#c1c7d2] cursor-pointer hover:opacity-80 transition-opacity"
+            className="w-9 h-9 rounded-full border border-[#c1c7d2] bg-[#3198F5] text-xs font-bold text-white hover:opacity-80 transition-opacity"
+            aria-label="Open profile"
           >
-            <img alt="Profile" className="w-full h-full object-cover" src="https://ui-avatars.com/api/?name=User&background=3198F5&color=fff" />
-          </div>
+            {userInitials}
+          </button>
         </div>
       </header>
 
@@ -493,6 +644,62 @@ export function PassengerMap() {
             onClick={() => setIsModalOpen(false)}
           />
 
+          <div className="mb-6 rounded-[28px] border border-[#d5e0ea] bg-[#f8fbfe] p-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7a8a96]">Search Radius</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {RANGE_OPTIONS_KM.map((radius) => (
+                  <button
+                    key={radius}
+                    type="button"
+                    onClick={() => setDriverRadiusKm(radius)}
+                    className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                      driverRadiusKm === radius
+                        ? "bg-[#3198F5] text-white"
+                        : "bg-white text-[#56656e] border border-[#d5e0ea]"
+                    }`}
+                  >
+                    {radius} km
+                  </button>
+                ))}
+                <label className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-[#56656e] border border-[#d5e0ea]">
+                  <span className="sr-only">Custom driver search radius in kilometres</span>
+                  <input
+                    type="number"
+                    min={MIN_SEARCH_RADIUS_KM}
+                    max={MAX_SEARCH_RADIUS_KM}
+                    step="1"
+                    value={driverRadiusKm}
+                    onChange={(event) => setDriverRadiusKm(normalizeRadius(event.target.value))}
+                    className="w-9 bg-transparent text-right outline-none"
+                    aria-label="Custom driver search radius in kilometres"
+                  />
+                  <span>km</span>
+                </label>
+              </div>
+              <p className="mt-2 text-xs text-[#7a8a96]">Choose any range from 1 to 50 km.</p>
+            </div>
+
+            <div className="mt-5 flex items-center justify-between gap-3 border-t border-[#d5e0ea] pt-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#3198F5]">Driver Search</p>
+                <p className="mt-1 text-sm text-[#56656e]">{driverStatus}</p>
+              </div>
+              <div className="rounded-full bg-white px-3 py-1 text-sm font-bold text-[#3198F5] shadow-sm">
+                {activeDrivers.length}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => loadNearbyDrivers({ announce: true })}
+              disabled={isLoadingDrivers || isDemoMode}
+              className="mt-4 rounded-full bg-[#3198F5] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isLoadingDrivers ? "Checking..." : "Find Nearby Drivers"}
+            </button>
+          </div>
+
           {!isArmed ? (
             <div
               id="modal-content"
@@ -540,6 +747,24 @@ export function PassengerMap() {
                 Suggested Spots
               </h4>
               <div className="flex gap-4 overflow-x-auto pb-6 mb-4 scrollbar-hide">
+                <button
+                  type="button"
+                  onClick={useCurrentLocation}
+                  disabled={isLocating}
+                  className={`shrink-0 w-44 p-4 rounded-2xl border-2 border-dashed text-left transition-colors disabled:cursor-wait disabled:opacity-60 ${
+                    selectedSpot?.isCurrentLocation
+                      ? "border-[#3198F5] bg-[#dcedff]"
+                      : "border-[#3198F5]/40 bg-[#eff7ff] hover:bg-[#e2f1ff]"
+                  }`}
+                >
+                  <MapPin className="w-6 h-6 text-[#3198F5] mb-8" />
+                  <p className="font-bold text-[#191c1e]">{isLocating ? "Locating..." : "Use my location"}</p>
+                  <p className="text-xs text-[#56656e] mt-1">
+                    {selectedSpot?.isCurrentLocation
+                      ? `Pickup point: ${selectedSpot.name}`
+                      : "Set your pickup point"}
+                  </p>
+                </button>
                 {PREDEFINED_HOTSPOTS.map((spot, idx) => (
                   <button
                     key={idx}

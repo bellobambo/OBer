@@ -1,69 +1,208 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import maplibregl from "maplibre-gl";
-import { History, Wallet, User as UserIcon, Settings2 } from "lucide-react";
+import { Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { DriverBottomNav } from "../components/DriverBottomNav";
+import { BrandLogo } from "../components/BrandLogo";
 import { getActiveHotspots, updateDriverVisibility } from "../services/api";
 import { useSocket } from "../contexts/SocketContext";
 
+const DEFAULT_CENTER = [4.518, 7.52];
+const DEFAULT_HOTSPOT_RADIUS_KM = 5;
+const RANGE_OPTIONS_KM = [1, 3, 5, 10];
+const MIN_SEARCH_RADIUS_KM = 1;
+const MAX_SEARCH_RADIUS_KM = 50;
+
 const DUMMY_HOTSPOTS = [
   { placeName: "Anglo-Moz Car Park", passengerCount: 12, coords: [4.5135, 7.5219] },
-  { placeName: "Fajuyi Hall Car Park", passengerCount: 8, coords: [4.5186, 7.5180] },
+  { placeName: "Fajuyi Hall Car Park", passengerCount: 8, coords: [4.5186, 7.518] },
   { placeName: "Moremi Car Park", passengerCount: 15, coords: [4.5183, 7.5202] },
-  { placeName: "OAU Health Centre", passengerCount: 5, coords: [4.5175, 7.5220] },
+  { placeName: "OAU Health Centre", passengerCount: 5, coords: [4.5175, 7.522] },
   { placeName: "SUB Car Park", passengerCount: 20, coords: [4.5207, 7.5178] },
 ];
 
+function toRadians(value) {
+  return (value * Math.PI) / 180;
+}
+
+function calculateDistanceInKm(fromCoords, toCoords) {
+  if (!fromCoords || !toCoords) return Number.POSITIVE_INFINITY;
+
+  const [fromLongitude, fromLatitude] = fromCoords;
+  const [toLongitude, toLatitude] = toCoords;
+  const earthRadiusInKm = 6371;
+  const latitudeDelta = toRadians(toLatitude - fromLatitude);
+  const longitudeDelta = toRadians(toLongitude - fromLongitude);
+  const originLatitude = toRadians(fromLatitude);
+  const targetLatitude = toRadians(toLatitude);
+
+  const a =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(originLatitude) *
+      Math.cos(targetLatitude) *
+      Math.sin(longitudeDelta / 2) ** 2;
+
+  return earthRadiusInKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function normalizeRadius(value) {
+  const radius = Number(value);
+  if (!Number.isFinite(radius)) return DEFAULT_HOTSPOT_RADIUS_KM;
+  return Math.min(MAX_SEARCH_RADIUS_KM, Math.max(MIN_SEARCH_RADIUS_KM, radius));
+}
+
+function normalizeCoords(hotspot) {
+  return hotspot.coords || hotspot.coordinates || null;
+}
+
+function toHotspotKey(hotspot) {
+  const coords = normalizeCoords(hotspot) || [];
+  return `${hotspot.placeName || hotspot.name || ""}|${coords[0] ?? ""}|${coords[1] ?? ""}`;
+}
+
+function isWithinRadius(coords, originCoords, radiusInKm) {
+  if (!originCoords) return true;
+  return calculateDistanceInKm(originCoords, coords) <= radiusInKm;
+}
+
+function normalizeHotspots(hotspots, originCoords, radiusInKm) {
+  const next = {};
+
+  (hotspots || []).forEach((hotspot) => {
+    const coords = normalizeCoords(hotspot);
+    if (!coords) return;
+    if (!isWithinRadius(coords, originCoords, radiusInKm)) return;
+
+    next[toHotspotKey(hotspot)] = {
+      ...hotspot,
+      coords,
+    };
+  });
+
+  return next;
+}
+
 export function DriverMap() {
   const mapContainer = useRef(null);
-  const map = useRef(null);
+  const mapRef = useRef(null);
   const driverMarkerRef = useRef(null);
   const hotspotMarkersRef = useRef([]);
+  const lastNearbyFetchRef = useRef(null);
+
+  const routeLocation = useLocation();
+  const navigate = useNavigate();
+  const { socket, isDemoMode, setIsDemoMode } = useSocket();
 
   const [isOnline, setIsOnline] = useState(() => localStorage.getItem("driver_isOnline") === "true");
   const [liveHotspots, setLiveHotspots] = useState({});
+  const [searchRadiusKm, setSearchRadiusKm] = useState(DEFAULT_HOTSPOT_RADIUS_KM);
+  const [hotspotMode, setHotspotMode] = useState("nearby");
+  const [isLoadingHotspots, setIsLoadingHotspots] = useState(false);
+  const [hotspotStatus, setHotspotStatus] = useState("Load nearby passengers or switch to all hotspots.");
+  const [driverCoords, setDriverCoords] = useState(() => {
+    if (
+      typeof routeLocation.state?.lng === "number" &&
+      typeof routeLocation.state?.lat === "number"
+    ) {
+      return [routeLocation.state.lng, routeLocation.state.lat];
+    }
 
-  const { socket, isDemoMode, setIsDemoMode } = useSocket();
-  const navigate = useNavigate();
+    return null;
+  });
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (!driverCoords) return;
+
+    if (driverMarkerRef.current) {
+      driverMarkerRef.current.setLngLat(driverCoords);
+    }
+  }, [driverCoords]);
+
+  async function loadHotspots(mode = hotspotMode) {
+    if (isDemoMode) return;
+
+    if (mode === "nearby" && !driverCoords) {
+      setHotspotStatus("Turn on your location or go online to load nearby passengers.");
+      return;
+    }
+
+    setIsLoadingHotspots(true);
+
+    try {
+      const response =
+        mode === "all"
+          ? await getActiveHotspots()
+          : await getActiveHotspots(driverCoords[1], driverCoords[0], searchRadiusKm);
+
+      const hotspots = normalizeHotspots(
+        response.data?.hotspots,
+        mode === "nearby" ? driverCoords : null,
+        searchRadiusKm,
+      );
+
+      setHotspotMode(mode);
+      setLiveHotspots(hotspots);
+
+      const count = Object.keys(hotspots).length;
+      setHotspotStatus(
+        count > 0
+          ? `${count} hotspot${count === 1 ? "" : "s"} loaded.`
+          : mode === "all"
+            ? "No active passenger hotspots right now."
+            : `No active passengers within ${searchRadiusKm} km.`,
+      );
+    } catch (error) {
+      toast.error(error.message || "Unable to load active hotspots.");
+      setHotspotStatus("Unable to load hotspots right now.");
+    } finally {
+      setIsLoadingHotspots(false);
+    }
+  }
 
   useEffect(() => {
     if (isDemoMode) return;
-    getActiveHotspots()
-      .then((response) => {
-        const hotspots = {};
-        (response.data?.hotspots || []).forEach((hotspot) => {
-          hotspots[hotspot.placeName] = hotspot;
-        });
-        setLiveHotspots(hotspots);
-      })
-      .catch((error) => toast.error(error.message));
-  }, [isDemoMode]);
+    if (!driverCoords && hotspotMode === "nearby") return;
 
-  // Socket event listeners
+    loadHotspots(hotspotMode);
+  }, [driverCoords, isDemoMode, searchRadiusKm]);
+
   useEffect(() => {
     if (!socket || isDemoMode) return;
 
     const handleSnapshot = (payload) => {
-      const newHotspots = {};
-      payload.hotspots.forEach((h) => {
-        newHotspots[h.placeName] = h;
-      });
-      setLiveHotspots(newHotspots);
+      const nextHotspots = normalizeHotspots(
+        payload.hotspots,
+        hotspotMode === "nearby" ? driverCoords : null,
+        searchRadiusKm,
+      );
+      setLiveHotspots(nextHotspots);
     };
 
     const handleUpdated = (payload) => {
-      setLiveHotspots((prev) => ({
-        ...prev,
-        [payload.placeName]: payload,
-      }));
+      const coords = normalizeCoords(payload);
+      if (!coords) return;
+
+      setLiveHotspots((prev) => {
+        const next = { ...prev };
+        const hotspotKey = toHotspotKey(payload);
+
+        if (hotspotMode === "nearby" && !isWithinRadius(coords, driverCoords, searchRadiusKm)) {
+          delete next[hotspotKey];
+          return next;
+        }
+
+        next[hotspotKey] = { ...payload, coords };
+        return next;
+      });
     };
 
     const handleRemoved = (payload) => {
       setLiveHotspots((prev) => {
-        const copy = { ...prev };
-        delete copy[payload.placeName];
-        return copy;
+        const next = { ...prev };
+        delete next[toHotspotKey(payload)];
+        return next;
       });
     };
 
@@ -76,15 +215,16 @@ export function DriverMap() {
       socket.off("hotspot:updated", handleUpdated);
       socket.off("hotspot:removed", handleRemoved);
     };
-  }, [socket, isDemoMode]);
+  }, [socket, isDemoMode, driverCoords, hotspotMode, searchRadiusKm]);
 
-  // Map Initialization
   useEffect(() => {
-    if (map.current) return;
-    map.current = new maplibregl.Map({
+    if (mapRef.current) return;
+
+    const initialCenter = driverCoords || DEFAULT_CENTER;
+    mapRef.current = new maplibregl.Map({
       container: mapContainer.current,
       style: "https://tiles.openfreemap.org/styles/bright",
-      center: [4.518, 7.520], 
+      center: initialCenter,
       zoom: 15.5,
       attributionControl: false,
     });
@@ -92,82 +232,88 @@ export function DriverMap() {
     const el = document.createElement("div");
     el.className = "w-5 h-5 bg-[#3198F5] rounded-full border-[3px] border-white shadow-lg ring-4 ring-[#3198F5]/20";
     driverMarkerRef.current = new maplibregl.Marker({ element: el })
-      .setLngLat([4.518, 7.520])
-      .addTo(map.current);
-  }, []);
+      .setLngLat(initialCenter)
+      .addTo(mapRef.current);
+  }, [driverCoords]);
 
-  // Update map markers when hotspots or demo mode changes
   useEffect(() => {
-    if (!map.current) return;
+    if (!mapRef.current) return;
 
     hotspotMarkersRef.current.forEach((marker) => marker.remove());
     hotspotMarkersRef.current = [];
 
-    if (isOnline) {
-      const spotsToRender = isDemoMode ? DUMMY_HOTSPOTS : Object.values(liveHotspots);
+    if (!isOnline) return;
 
-      spotsToRender.forEach((spot) => {
-        const coords = spot.coords || spot.coordinates;
-        if (!coords) return;
+    const spotsToRender = isDemoMode ? DUMMY_HOTSPOTS : Object.values(liveHotspots);
 
-        const el = document.createElement("div");
-        el.className = "flex flex-col items-center pointer-events-none";
-        
-        el.innerHTML = `
-          <div class="bg-white p-2 rounded-full shadow-lg border-[2px] flex items-center justify-center relative transition-transform duration-500 hover:scale-110" style="border-color: #00497d;">
-            <span class="material-symbols-outlined text-[24px]" style="color: #00497d; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;">groups</span>
-            <div class="absolute min-w-[20px] h-[20px] px-1 flex items-center justify-center text-[10px] font-bold rounded-full shadow-sm" style="background-color: #ba1a1a; color: white; border: 2px solid white; top: -6px; right: -6px;">
-              ${spot.passengerCount || spot.count || 0}
-            </div>
+    spotsToRender.forEach((spot) => {
+      const coords = normalizeCoords(spot);
+      if (!coords) return;
+
+      const el = document.createElement("div");
+      el.className = "flex flex-col items-center pointer-events-none";
+      el.innerHTML = `
+        <div class="bg-white h-12 w-12 rounded-full shadow-lg border-[2px] flex items-center justify-center relative transition-transform duration-500 hover:scale-110" style="border-color: #00497d;">
+          <span class="text-[20px] font-black leading-none" style="color: #00497d;">P</span>
+          <div class="absolute min-w-[20px] h-[20px] px-1 flex items-center justify-center text-[10px] font-bold rounded-full shadow-sm" style="background-color: #ba1a1a; color: white; border: 2px solid white; top: -6px; right: -6px;">
+            ${spot.passengerCount || spot.count || 0}
           </div>
-          <span class="text-[11px] font-bold bg-white/95 text-[#00497d] px-2.5 py-0.5 rounded shadow-sm mt-1.5 backdrop-blur-sm border border-gray-100">
-            ${spot.placeName || spot.name}
-          </span>
-        `;
+        </div>
+        <span class="text-[11px] font-bold bg-white/95 text-[#00497d] px-2.5 py-0.5 rounded shadow-sm mt-1.5 backdrop-blur-sm border border-gray-100">
+          ${spot.placeName || spot.name}
+        </span>
+      `;
 
-        const marker = new maplibregl.Marker({ element: el })
-          .setLngLat(coords)
-          .addTo(map.current);
-        hotspotMarkersRef.current.push(marker);
-      });
-    }
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat(coords)
+        .addTo(mapRef.current);
+      hotspotMarkersRef.current.push(marker);
+    });
   }, [isOnline, isDemoMode, liveHotspots]);
 
-  // Continuous GPS Tracking when Online
   useEffect(() => {
     let watchId;
-    if (isOnline) {
-      if ("geolocation" in navigator) {
-        watchId = navigator.geolocation.watchPosition(
-          (pos) => {
-            const { latitude, longitude, heading } = pos.coords;
-            if (driverMarkerRef.current) {
-              driverMarkerRef.current.setLngLat([longitude, latitude]);
-            }
-            if (map.current) {
-              // Smoothly pan map to follow driver
-              map.current.easeTo({ center: [longitude, latitude] });
-            }
-            
-            if (!isDemoMode && socket) {
-              socket.emit(
-                "driver:location:update",
-                { latitude, longitude, heading: heading || 0 },
-                (response) => {
-                  if (response && !response.success) toast.error(response.message);
-                },
-              );
-            }
-          },
-          (err) => {
-            console.error("GPS Error:", err);
-            toast.error("Lost GPS signal.");
-          },
-          { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
-        );
-      } else {
-        toast.error("Geolocation is not supported by your browser");
-      }
+
+    if (isOnline && "geolocation" in navigator) {
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude, heading } = position.coords;
+          const nextCoords = [longitude, latitude];
+
+          if (driverMarkerRef.current) {
+            driverMarkerRef.current.setLngLat(nextCoords);
+          }
+
+          if (mapRef.current) {
+            mapRef.current.easeTo({ center: nextCoords });
+          }
+
+          const lastFetchCoords = lastNearbyFetchRef.current;
+          if (!lastFetchCoords || calculateDistanceInKm(lastFetchCoords, nextCoords) >= 0.2) {
+            lastNearbyFetchRef.current = nextCoords;
+            setDriverCoords(nextCoords);
+          }
+
+          if (!isDemoMode && socket) {
+            socket.emit(
+              "driver:location:update",
+              { latitude, longitude, heading: heading || 0 },
+              (response) => {
+                if (response && !response.success) {
+                  toast.error(response.message);
+                }
+              },
+            );
+          }
+        },
+        (error) => {
+          console.error("GPS Error:", error);
+          toast.error("Lost GPS signal.");
+        },
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 },
+      );
+    } else if (isOnline && !("geolocation" in navigator)) {
+      toast.error("Geolocation is not supported by your browser");
     }
 
     return () => {
@@ -178,7 +324,10 @@ export function DriverMap() {
   const toggleStatus = async () => {
     try {
       if (isOnline) {
-        if (!isDemoMode) await updateDriverVisibility(false);
+        if (!isDemoMode) {
+          await updateDriverVisibility(false);
+        }
+
         setIsOnline(false);
         localStorage.setItem("driver_isOnline", "false");
         toast.info("You are now offline.");
@@ -189,13 +338,19 @@ export function DriverMap() {
         if (!("geolocation" in navigator)) {
           throw new Error("Geolocation is not supported by your browser.");
         }
+
         const position = await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: true,
             timeout: 10000,
           });
         });
+
         const { latitude, longitude, heading } = position.coords;
+        const nextCoords = [longitude, latitude];
+        setDriverCoords(nextCoords);
+        lastNearbyFetchRef.current = nextCoords;
+
         const response = await updateDriverVisibility(
           true,
           latitude,
@@ -219,40 +374,108 @@ export function DriverMap() {
       <div ref={mapContainer} className="absolute inset-0 w-full h-full z-0" />
 
       <header className="absolute top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
-        <h1 className="text-2xl text-[#00497d] font-bold tracking-tight">OBer</h1>
-        
+        <BrandLogo />
+
         <div className="flex items-center gap-4">
-          <button 
+          <button
             onClick={() => setIsDemoMode(!isDemoMode)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors border shadow-sm ${
-              isDemoMode 
-                ? "bg-amber-100 text-amber-800 border-amber-300" 
+              isDemoMode
+                ? "bg-amber-100 text-amber-800 border-amber-300"
                 : "bg-emerald-100 text-emerald-800 border-emerald-300"
             }`}
           >
             <Settings2 className="w-3.5 h-3.5" />
             {isDemoMode ? "Demo Mode" : "Live Mode"}
           </button>
-          
-          <div 
+
+          <div
             onClick={() => navigate("/driver/profile")}
             className="w-9 h-9 rounded-full overflow-hidden border-2 border-gray-200 cursor-pointer hover:border-[#3198F5] transition-colors"
           >
-            <img 
-              alt="Profile" 
-              className="w-full h-full object-cover" 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuARDgvR22O96b4HBpQ0Aw8XZESjhQtt9qLMFQ-LPMckgproLzqsPsC1uf2JYDJZtB6u33vdw-RMd1ST284YnfOouNowxOtlI7Ild8WpXRaywVQ2Vg0hTVnfMk-Bxq3-0XRihvyqw0IIFhefChwBrJquxMV45O0BpGRcRlh63-F0tlXi-OWmt6IYKGfKQ6HpdlCzauaGppDq84PM1VcQURl1th5NTuIKu6gIoEPKaJUTzx4DAX-qmWVXAuXPMJHnkamhD-p_YxpQx_g" 
+            <img
+              alt="Profile"
+              className="w-full h-full object-cover"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuARDgvR22O96b4HBpQ0Aw8XZESjhQtt9qLMFQ-LPMckgproLzqsPsC1uf2JYDJZtB6u33vdw-RMd1ST284YnfOouNowxOtlI7Ild8WpXRaywVQ2Vg0hTVnfMk-Bxq3-0XRihvyqw0IIFhefChwBrJquxMV45O0BpGRcRlh63-F0tlXi-OWmt6IYKGfKQ6HpdlCzauaGppDq84PM1VcQURl1th5NTuIKu6gIoEPKaJUTzx4DAX-qmWVXAuXPMJHnkamhD-p_YxpQx_g"
             />
           </div>
         </div>
       </header>
 
+      <section className="absolute top-20 left-4 right-4 z-40">
+        <div className="rounded-3xl border border-white/60 bg-white/88 p-4 shadow-lg backdrop-blur-md">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#00497d]">Passenger Search</p>
+              <p className="mt-1 text-sm text-gray-600">{hotspotStatus}</p>
+            </div>
+            <div className="rounded-full bg-[#e8f2fb] px-3 py-1 text-sm font-bold text-[#00497d]">
+              {Object.keys(liveHotspots).length}
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => loadHotspots("nearby")}
+              disabled={isLoadingHotspots || (hotspotMode === "nearby" && !driverCoords && !isDemoMode)}
+              className="rounded-full bg-[#00497d] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isLoadingHotspots && hotspotMode === "nearby" ? "Loading..." : "Nearby Passengers"}
+            </button>
+            <button
+              type="button"
+              onClick={() => loadHotspots("all")}
+              disabled={isLoadingHotspots}
+              className="rounded-full border border-[#c9d7e6] bg-white px-4 py-2 text-sm font-semibold text-[#00497d] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isLoadingHotspots && hotspotMode === "all" ? "Loading..." : "All Hotspots"}
+            </button>
+          </div>
+
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Search Radius</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {RANGE_OPTIONS_KM.map((radius) => (
+                <button
+                  key={radius}
+                  type="button"
+                  onClick={() => setSearchRadiusKm(radius)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                    searchRadiusKm === radius
+                      ? "bg-[#3198F5] text-white"
+                      : "bg-[#eef3f8] text-[#4a5c6e]"
+                  }`}
+                >
+                  {radius} km
+                  </button>
+                ))}
+                <label className="flex items-center gap-2 rounded-full border border-[#c9d7e6] bg-white px-3 py-1.5 text-sm font-semibold text-[#4a5c6e]">
+                  <span className="sr-only">Custom passenger search radius in kilometres</span>
+                  <input
+                    type="number"
+                    min={MIN_SEARCH_RADIUS_KM}
+                    max={MAX_SEARCH_RADIUS_KM}
+                    step="1"
+                    value={searchRadiusKm}
+                    onChange={(event) => setSearchRadiusKm(normalizeRadius(event.target.value))}
+                    className="w-9 bg-transparent text-right outline-none"
+                    aria-label="Custom passenger search radius in kilometres"
+                  />
+                  <span>km</span>
+                </label>
+              </div>
+              <p className="mt-2 text-xs text-gray-500">Choose any range from 1 to 50 km.</p>
+            </div>
+        </div>
+      </section>
+
       <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-50 w-full max-w-[348px] px-6 flex justify-center">
-        <button 
+        <button
           onClick={toggleStatus}
           className={`w-full max-w-[300px] font-bold py-4 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center gap-3 active:scale-95 ${
-            isOnline 
-              ? "bg-[#3198F5] text-white azure-glow" 
+            isOnline
+              ? "bg-[#3198F5] text-white azure-glow"
               : "bg-white text-gray-700 border border-gray-200"
           }`}
         >
