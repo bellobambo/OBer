@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { MapPin, History, Wallet, User } from "lucide-react";
+import { MapPin, Wallet, User } from "lucide-react";
 
 export function DriverBottomNav({ activePage }) {
   const navigate = useNavigate();
@@ -26,27 +26,14 @@ export function DriverBottomNav({ activePage }) {
       </button>
 
       <button
-        onClick={() => {}} // Disabled for now since there's no activity page
-        className={`flex flex-col items-center gap-1 transition-colors ${
-          activePage === "activity" ? "text-[#3198F5]" : "text-[#56656e] hover:text-[#191c1e]"
-        }`}
+        disabled
+        aria-label="Wallet coming soon"
+        className="flex flex-col items-center gap-1 text-[#56656e] cursor-not-allowed opacity-70"
       >
-        <div className={activePage === "activity" ? "bg-[#3198F5]/10 px-6 py-1.5 rounded-2xl" : ""}>
-          <History className={activePage === "activity" ? "w-5 h-5" : "w-6 h-6"} strokeWidth={activePage === "activity" ? 2.5 : 2} />
+        <div>
+          <Wallet className="w-6 h-6" strokeWidth={2} />
         </div>
-        <span className={`text-[10px] tracking-wide ${activePage === "activity" ? "font-bold" : "mt-0.5"}`}>Activity</span>
-      </button>
-
-      <button
-        onClick={() => {}} // Disabled for now since there's no wallet page
-        className={`flex flex-col items-center gap-1 transition-colors ${
-          activePage === "wallet" ? "text-[#3198F5]" : "text-[#56656e] hover:text-[#191c1e]"
-        }`}
-      >
-        <div className={activePage === "wallet" ? "bg-[#3198F5]/10 px-6 py-1.5 rounded-2xl" : ""}>
-          <Wallet className={activePage === "wallet" ? "w-5 h-5" : "w-6 h-6"} strokeWidth={activePage === "wallet" ? 2.5 : 2} />
-        </div>
-        <span className={`text-[10px] tracking-wide ${activePage === "wallet" ? "font-bold" : "mt-0.5"}`}>Wallet</span>
+        <span className="text-[10px] tracking-wide mt-0.5">Coming Soon</span>
       </button>
 
       <button
